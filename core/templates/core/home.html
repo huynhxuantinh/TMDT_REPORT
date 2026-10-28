@@ -1,0 +1,751 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="{% static 'core/img/benh-vien-3t-logo.png' %}">
+    <link rel="apple-touch-icon" href="{% static 'core/img/benh-vien-3t-logo.png' %}">
+    <title>Trang ch&#7911;</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f5f7f4;
+            --bg-2: #edf3ef;
+            --ink: #1f2c2a;
+            --muted: #566563;
+            --primary: #0e6f60;
+            --primary-2: #13806f;
+            --card: #ffffff;
+            --ring: rgba(14, 111, 96, 0.2);
+            --border: rgba(18, 46, 42, 0.12);
+            --shadow-soft: 0 10px 28px rgba(16, 35, 31, 0.08);
+            --shadow-card: 0 14px 30px rgba(16, 35, 31, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 95% -10%, rgba(19, 128, 111, 0.13), transparent 58%),
+                radial-gradient(900px 500px at -10% 15%, rgba(110, 157, 143, 0.13), transparent 58%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page { max-width: 1280px; margin: 0 auto; padding: 24px 20px 48px; }
+
+        .topbar {
+            display: flex; align-items: center; justify-content: space-between; gap: 16px;
+            padding: 18px 22px;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow-soft);
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.36s ease-out both;
+        }
+
+        .brand-wrap { display: flex; align-items: center; gap: 12px; min-width: 0; }
+        .brand-logo {
+            width: 62px;
+            height: 62px;
+            border-radius: 10px;
+            object-fit: cover;
+            border: none;
+            background: transparent;
+            flex-shrink: 0;
+        }
+        .brand { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .brand h1 { font-family: "Playfair Display", serif; font-size: 26px; margin: 0; letter-spacing: 0.4px; }
+        .brand span { font-size: 13px; color: var(--muted); }
+
+        .user-area {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            min-width: 0;
+        }
+        .user-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            align-items: flex-end;
+            text-align: right;
+        }
+        .user-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .user-name { font-weight: 600; color: var(--primary); }
+
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            padding: 10px 16px; border-radius: 999px; text-decoration: none;
+            font-weight: 600; font-size: 14px; border: 1px solid transparent;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            white-space: nowrap;
+        }
+        .btn.primary { background: var(--primary); color: #fff; box-shadow: 0 10px 18px rgba(14, 111, 96, 0.24); }
+        .btn.primary:hover { background: var(--primary-2); transform: translateY(-1px); }
+        .btn.ghost { color: var(--primary); border-color: rgba(14, 111, 96, 0.35); background: rgba(255, 255, 255, 0.95); }
+        .btn.ghost:hover { box-shadow: 0 10px 16px rgba(14, 111, 96, 0.12); transform: translateY(-1px); }
+
+        .notif-badge { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 205, 121, 0.35); color: #7b5310; font-size: 12px; font-weight: 700; }
+
+        .hero {
+            margin: 22px 0 16px;
+            display: grid;
+            gap: 16px;
+            grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
+            align-items: stretch;
+            animation: fadeIn 0.42s ease-out 0.05s both;
+        }
+        .hero h2 { font-family: "Playfair Display", serif; font-size: 34px; margin: 0 0 8px; line-height: 1.18; }
+        .hero p { margin: 0; color: var(--muted); font-size: 15px; line-height: 1.55; max-width: 780px; }
+
+        .hero-card { background: var(--card); border-radius: 18px; padding: 18px; box-shadow: var(--shadow-soft); border: 1px solid var(--border); animation: fadeIn 0.42s ease-out 0.09s both; }
+        .hero-card h3 { margin: 0 0 12px; font-size: 18px; }
+        .hero-card .meta { display: flex; justify-content: space-between; font-size: 14px; color: var(--muted); }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+            gap: 14px;
+            margin-top: 14px;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 12px;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, border 0.18s ease;
+            animation: fadeIn 0.45s ease both;
+            animation-delay: var(--enter-delay, 0s);
+        }
+        .grid .card:nth-child(2n) { --enter-delay: 0.04s; }
+        .grid .card:nth-child(3n) { --enter-delay: 0.08s; }
+        .card:hover { transform: translateY(-3px); border-color: rgba(14, 111, 96, 0.3); box-shadow: var(--shadow-card); }
+        .card-title { font-weight: 600; font-size: 17px; }
+        .card-meta { color: var(--muted); font-size: 14px; }
+
+        .card-badges { display: flex; flex-wrap: wrap; gap: 8px; }
+        .badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; background: rgba(14, 111, 96, 0.1); color: var(--primary); font-size: 12px; font-weight: 600; }
+        .badge.warn { background: rgba(255, 205, 121, 0.28); color: #7b5310; }
+        .card-cta { margin-top: auto; font-weight: 600; color: var(--primary); font-size: 14px; }
+
+        .empty-state {
+            background: rgba(255, 255, 255, 0.86);
+            border-radius: 14px;
+            padding: 20px;
+            text-align: center;
+            color: var(--muted);
+            border: 1px dashed rgba(31, 42, 43, 0.2);
+        }
+
+        .tools {
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.8fr);
+            gap: 14px;
+            align-items: stretch;
+        }
+        .tool-card {
+            background: var(--card);
+            padding: 16px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-soft);
+            animation: fadeIn 0.44s ease-out both;
+        }
+        .tools .tool-card:first-child { animation-delay: 0.12s; }
+        .tools .tool-card:last-child { animation-delay: 0.18s; }
+        .tool-card h3 {
+            margin: 0 0 12px;
+            font-size: 18px;
+            font-family: "Playfair Display", serif;
+        }
+        .tool-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+        .tool-field { display: flex; flex-direction: column; gap: 5px; font-size: 13px; }
+        .tool-field label { font-weight: 600; color: #23403b; }
+        .tool-field input, .tool-field select {
+            padding: 9px 11px;
+            border-radius: 10px;
+            border: 1px solid rgba(31, 42, 43, 0.2);
+            font-family: inherit;
+            font-size: 14px;
+            background: #fff;
+        }
+        .tool-field input:focus, .tool-field select:focus {
+            outline: 2px solid var(--ring);
+            border-color: rgba(14, 111, 96, 0.4);
+        }
+
+        .map-box {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            min-height: 560px;
+            padding: 0;
+        }
+        #home-map { width: 100%; height: 100%; min-height: 560px; }
+        .map-popup { min-width: 180px; }
+        .map-popup-title { font-weight: 700; font-size: 14px; margin-bottom: 5px; color: #1f2c2a; line-height: 1.3; }
+        .map-popup-meta { font-size: 12px; color: #566563; margin-bottom: 4px; line-height: 1.35; }
+        .map-popup-link {
+            display: inline-flex;
+            margin-top: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--primary);
+            text-decoration: none;
+        }
+        .map-popup-link:hover { text-decoration: underline; }
+        .home-locate-control {
+            width: 34px;
+            height: 34px;
+            border: 1px solid rgba(14, 111, 96, 0.32);
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 0 8px 16px rgba(18, 46, 42, 0.2);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+        .home-locate-control:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 18px rgba(18, 46, 42, 0.24);
+        }
+        .home-locate-control svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--primary);
+        }
+        .home-locate-control.locate-active svg { fill: #c62828; }
+        .home-user-marker-wrap {
+            background: transparent;
+            border: 0;
+        }
+        .home-user-marker {
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            border: 1px solid #fff;
+            background: #2a93ee;
+            animation: locatePulse 2s infinite;
+        }
+        @keyframes locatePulse {
+            0% { box-shadow: 0 0 0 0 rgba(42, 147, 238, 0.65); }
+            70% { box-shadow: 0 0 0 12px rgba(42, 147, 238, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(42, 147, 238, 0); }
+        }
+
+        .status { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: rgba(14, 111, 96, 0.1); color: var(--primary); }
+        .status.closed { background: rgba(182, 55, 55, 0.14); color: #9d2c2c; }
+        .status.warn { background: rgba(255, 205, 121, 0.26); color: #7b5310; }
+
+        .pagination { margin-top: 14px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .page-link {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 38px; height: 38px; padding: 0 12px;
+            border-radius: 999px; text-decoration: none; font-weight: 600; font-size: 14px;
+            border: 1px solid rgba(14, 111, 96, 0.32); color: var(--primary); background: rgba(255, 255, 255, 0.95);
+        }
+        .page-link.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+        .page-link.disabled { opacity: 0.4; pointer-events: none; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 1080px) {
+            .hero { grid-template-columns: 1fr; }
+            .tools { grid-template-columns: 1fr; }
+            #home-map, .map-box { min-height: 460px; }
+        }
+        @media (max-width: 700px) {
+            .page { padding: 14px 10px 26px; }
+            .topbar {
+                padding: 14px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .hero h2 { font-size: 27px; }
+            .tool-grid { grid-template-columns: 1fr; }
+            .btn { width: 100%; }
+            .user-area { width: 100%; align-items: flex-start; }
+            .user-meta { align-items: flex-start; text-align: left; width: 100%; }
+            .user-actions { width: 100%; justify-content: flex-start; }
+            .brand-logo { width: 50px; height: 50px; border-radius: 9px; }
+            .brand h1 { font-size: 24px; }
+            .brand span { font-size: 12px; }
+            #home-map, .map-box { min-height: 360px; }
+            .pagination { justify-content: center; }
+        }
+    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" />
+</head>
+<body>
+    <div class="page">
+        <header class="topbar" data-aos="fade-down" data-aos-duration="500">
+            <div class="brand-wrap">
+                <img class="brand-logo" src="{% static 'core/img/benh-vien-3t-logo.png' %}" alt="Logo B&#7879;nh vi&#7879;n 3T">
+                <div class="brand">
+                    <h1>B&#7843;n &#273;&#7891; y t&#7871;</h1>
+                    <span>Tra c&#7913;u b&#7879;nh vi&#7879;n nhanh, r&#245;, tr&#7921;c quan</span>
+                </div>
+            </div>
+            <div class="user-area">
+                {% if user.is_authenticated %}
+                    <div class="user-meta">
+                        <span class="user-name">Xin ch&#224;o {{ display_name }}</span>
+                        {% if doctor_info %}
+                            <span style="font-size:12px; color:var(--muted);">{{ doctor_info.khoa }} - {{ doctor_info.benh_vien }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="user-actions">
+                        {% if doctor_info %}
+                            <a class="btn ghost" href="{% url 'gioi_thieu' %}">Gi&#7899;i thi&#7879;u</a>
+                            <a class="btn ghost" href="{% url 'bac_si_home' %}">Trang b&#225;c s&#297;</a>
+                            <a class="btn ghost" href="{% url 'bac_si_notifications' %}">Th&#244;ng b&#225;o</a>
+                            <a class="btn ghost" href="{% url 'contact_feedback' %}">Li&#234;n h&#7879; / G&#243;p &#253;</a>
+                        {% else %}
+                            <a class="btn ghost" href="{% url 'gioi_thieu' %}">Gi&#7899;i thi&#7879;u</a>
+                            <a class="btn ghost" href="{% url 'upcoming_appointments' %}">L&#7883;ch kh&#225;m</a>
+                            <a class="btn ghost" href="{% url 'medical_history' %}">L&#7883;ch s&#7917; kh&#225;m</a>
+                            <a class="btn ghost" href="{% url 'profile' %}">H&#7891; s&#417; c&#7911;a t&#244;i</a>
+                            <a class="btn ghost" href="{% url 'notifications' %}">Th&#244;ng b&#225;o{% if unread_count > 0 %}<span class="notif-badge">{{ unread_count }}</span>{% endif %}</a>
+                            <a class="btn ghost" href="{% url 'contact_feedback' %}">Li&#234;n h&#7879; / G&#243;p &#253;</a>
+                        {% endif %}
+                        <a class="btn primary" href="{% url 'logout' %}">&#272;&#259;ng xu&#7845;t</a>
+                    </div>
+                {% else %}
+                    <div class="user-actions">
+                        <a class="btn ghost" href="{% url 'gioi_thieu' %}">Gi&#7899;i thi&#7879;u</a>
+                        <a class="btn ghost" href="{% url 'contact_feedback' %}">Li&#234;n h&#7879; / G&#243;p &#253;</a>
+                        <a class="btn ghost" href="{% url 'login' %}">&#272;&#259;ng nh&#7853;p</a>
+                        <a class="btn primary" href="{% url 'register' %}">&#272;&#259;ng k&#253;</a>
+                    </div>
+                {% endif %}
+            </div>
+        </header>
+
+        {% if messages %}
+            <div class="hero-card" style="margin-top: 16px;">
+                {% for message in messages %}
+                    <div style="font-weight: 600;">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <section class="hero" data-aos="fade-up" data-aos-delay="60">
+            <div>
+                <h2>Danh s&#225;ch b&#7879;nh vi&#7879;n</h2>
+                <p>
+                    Ch&#7885;n b&#7879;nh vi&#7879;n &#273;&#7875; xem th&#244;ng tin chi ti&#7871;t, gi&#7901; ho&#7841;t &#273;&#7897;ng v&#224; v&#7883; tr&#237; tr&#234;n b&#7843;n &#273;&#7891;.
+                    D&#7919; li&#7879;u &#273;&#432;&#7907;c c&#7853;p nh&#7853;t t&#7915; h&#7879; th&#7889;ng qu&#7843;n l&#253; b&#7879;nh vi&#7879;n.
+                </p>
+            </div>
+            <div class="hero-card">
+                <h3>T&#7893;ng quan nhanh</h3>
+                <div class="meta">
+                    <span>S&#7889; l&#432;&#7907;ng hi&#7879;n c&#243;</span>
+                    <strong>{{ total_bvs }}</strong>
+                </div>
+            </div>
+        </section>
+
+        {% if doctor_info %}
+            <section>
+                <h2 style="font-family: 'Playfair Display', serif; font-size: 28px; margin: 0 0 12px;">L&#7883;ch h&#244;m nay</h2>
+                {% if doctor_today %}
+                    <div class="grid">
+                        {% for lich in doctor_today %}
+                            <div class="card">
+                                <div class="card-title">{{ lich.benh_nhan.ho_ten }}</div>
+                                <div class="card-meta">
+                                    Gi&#7901; {{ lich.gio_kham|time:"H\hi" }}
+                                    ({% with h=lich.gio_kham|time:"H" %}{% if h < "12" %}s&#225;ng{% elif h < "18" %}chi&#7873;u{% else %}t&#7889;i{% endif %}{% endwith %})
+                                    &#183; {{ lich.ca_label }} &#183; {{ lich.get_trang_thai_display }}
+                                </div>
+                                <div class="card-cta">
+                                    <a href="{% url 'doctor_exam' lich.id %}" style="color: var(--primary); text-decoration: none;">Kh&#225;m b&#7879;nh</a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="empty-state">H&#244;m nay ch&#432;a c&#243; l&#7883;ch kh&#225;m n&#224;o.</div>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        <section class="tools" data-aos="fade-up" data-aos-delay="90">
+            <div class="tool-card">
+                <h3 style="margin: 0 0 12px;">T&#236;m b&#7879;nh vi&#7879;n g&#7847;n b&#7841;n</h3>
+                <form method="get" id="geo-form">
+                    <div class="tool-grid">
+                        <div class="tool-field">
+                            <label for="q">T&#236;m nhanh</label>
+                            <input id="q" name="q" type="text" placeholder="T&#234;n, qu&#7853;n ho&#7863;c &#273;&#7883;a ch&#7881;" value="{{ q|default:'' }}">
+                        </div>
+                        <div class="tool-field">
+                            <label for="radius">B&#225;n k&#237;nh (km)</label>
+                            <input id="radius" name="radius" type="number" min="1" step="1" value="{{ radius_km|default:5 }}">
+                        </div>
+                        <div class="tool-field">
+                            <label for="loai_hinh">Lo&#7841;i h&#236;nh BV</label>
+                            <select id="loai_hinh" name="loai_hinh" class="form-control">
+                                <option value="">T&#7845;t c&#7843;</option>
+                                <option value="cong" {% if loai_hinh == "cong" %}selected{% endif %}>C&#244;ng</option>
+                                <option value="tu" {% if loai_hinh == "tu" %}selected{% endif %}>T&#432;</option>
+                                <option value="qt" {% if loai_hinh == "qt" %}selected{% endif %}>Qu&#7889;c t&#7871;</option>
+                            </select>
+                        </div>
+                        <div class="tool-field">
+                            <label for="phuong">Ph&#432;&#7901;ng</label>
+                            <select id="phuong" name="phuong" class="form-control">
+                                <option value="">T&#7845;t c&#7843;</option>
+                                {% for q in all_phuong %}
+                                    <option value="{{ q }}" {% if phuong_filter == q %}selected{% endif %}>{{ q }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="tool-field">
+                            <label>V&#7883; tr&#237; hi&#7879;n t&#7841;i</label>
+                            <input id="lat" name="lat" type="number" min="-90" max="90" step="any" placeholder="V&#297; &#273;&#7897;" value="{{ user_lat|default:'' }}">
+                        </div>
+                        <div class="tool-field">
+                            <label>&nbsp;</label>
+                            <input id="lon" name="lon" type="number" min="-180" max="180" step="any" placeholder="Kinh &#273;&#7897;" value="{{ user_lon|default:'' }}">
+                        </div>
+                        <div class="tool-field">
+                            <label>&nbsp;</label>
+                            <label style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" name="open" value="1" {% if filter_open %}checked{% endif %}>
+                                BV &#273;ang m&#7903;
+                            </label>
+                        </div>
+                        <div class="tool-field">
+                            <label>&nbsp;</label>
+                            <label style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" name="cap_cuu_24h" value="1" {% if filter_cap_cuu_24h %}checked{% endif %}>
+                                C&#7845;p c&#7913;u 24/7
+                            </label>
+                        </div>
+                        <div class="tool-field">
+                            <label>&nbsp;</label>
+                            <label style="display:flex; align-items:center; gap:8px;">
+                                <input type="checkbox" name="bhyt" value="1" {% if filter_bhyt %}checked{% endif %}>
+                                C&#243; BHYT
+                            </label>
+                        </div>
+                    </div>
+                    <div style="margin-top: 12px; display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn ghost" id="locate-btn" type="button">L&#7845;y v&#7883; tr&#237;</button>
+                        <a class="btn ghost" href="{% url 'home' %}">X&#243;a b&#7897; l&#7885;c</a>
+                        <button class="btn primary" type="submit">&#193;p d&#7909;ng l&#7885;c</button>
+                    </div>
+                </form>
+                <p style="margin: 10px 0 0; color: var(--muted); font-size: 13px;">
+                    H&#7879; th&#7889;ng s&#7869; t&#237;nh kho&#7843;ng c&#225;ch, l&#7885;c theo b&#225;n k&#237;nh v&#224; s&#7855;p x&#7871;p theo g&#7847;n nh&#7845;t n&#7871;u c&#243; v&#7883; tr&#237;.
+                </p>
+            </div>
+            <div class="tool-card map-box">
+                <div id="home-map"></div>
+            </div>
+        </section>
+
+        <section data-aos="fade-up" data-aos-delay="110">
+            <div class="grid">
+                {% for bv in bvs %}
+                    <div class="card">
+                        <div class="card-title">{{ bv.ten }}</div>
+                        <div class="card-meta">{{ bv.phuong }}</div>
+                        <div class="card-badges">
+                            {% if bv.co_bhyt %}
+                                <span class="badge">C&#243; BHYT</span>
+                            {% else %}
+                                <span class="badge warn">Kh&#244;ng BHYT</span>
+                            {% endif %}
+                            {% if bv.cap_cuu_24h %}
+                                <span class="badge">C&#7845;p c&#7913;u 24/7</span>
+                            {% else %}
+                                <span class="badge warn">Kh&#244;ng c&#7845;p c&#7913;u 24/7</span>
+                            {% endif %}
+                            {% if bv.is_open %}
+                                <span class="status">&#272;ang m&#7903;</span>
+                            {% else %}
+                                <span class="status closed">&#272;&#243;ng c&#7917;a</span>
+                            {% endif %}
+                        </div>
+                        {% if bv.distance_km %}
+                            <div class="card-meta">C&#225;ch b&#7841;n kho&#7843;ng {{ bv.distance_km }} km</div>
+                        {% endif %}
+                        <a class="card-cta" href="{% url 'hospital_detail' bv.id %}">Xem chi ti&#7871;t &amp; ch&#7881; &#273;&#432;&#7901;ng</a>
+                    </div>
+                {% empty %}
+                    <div class="empty-state">Ch&#432;a c&#243; b&#7879;nh vi&#7879;n n&#224;o</div>
+                {% endfor %}
+            </div>
+            {% if page_obj and page_obj.paginator.num_pages > 1 %}
+                <div class="pagination">
+                    {% if page_obj.has_previous %}
+                        <a class="page-link" href="?{% if query_string_without_page %}{{ query_string_without_page }}&{% endif %}page={{ page_obj.previous_page_number }}">Tr&#432;&#7899;c</a>
+                    {% else %}
+                        <span class="page-link disabled">Tr&#432;&#7899;c</span>
+                    {% endif %}
+
+                    {% for num in page_obj.paginator.page_range %}
+                        {% if num == page_obj.number %}
+                            <span class="page-link active">{{ num }}</span>
+                        {% else %}
+                            <a class="page-link" href="?{% if query_string_without_page %}{{ query_string_without_page }}&{% endif %}page={{ num }}">{{ num }}</a>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <a class="page-link" href="?{% if query_string_without_page %}{{ query_string_without_page }}&{% endif %}page={{ page_obj.next_page_number }}">Sau</a>
+                    {% else %}
+                        <span class="page-link disabled">Sau</span>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </section>
+    </div>
+
+    {{ map_data|json_script:"map-data" }}
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.2/anime.min.js"></script>
+    <script>
+        if (window.AOS) {
+            AOS.init({
+                duration: 520,
+                once: true,
+                offset: 40
+            });
+        }
+
+        const brandLogo = document.querySelector(".brand-logo");
+        if (brandLogo && window.anime) {
+            anime({
+                targets: brandLogo,
+                translateY: [0, -3, 0],
+                duration: 2800,
+                easing: "easeInOutSine",
+                loop: true
+            });
+        }
+
+        const map = L.map("home-map").setView([10.77, 106.7], 12);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            referrerPolicy: "strict-origin-when-cross-origin",
+            attribution: "&copy; OpenStreetMap"
+        }).addTo(map);
+        let userMarker = null;
+        let userAccuracyCircle = null;
+        let locateControlButton = null;
+
+        const mapData = JSON.parse(document.getElementById("map-data").textContent || "[]");
+        const detailUrlBase = "{% url 'hospital_detail' 0 %}";
+
+        function escapeHtml(value) {
+            return String(value ?? "")
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#39;");
+        }
+
+        function detailUrlForId(id) {
+            const numericId = Number(id);
+            if (!Number.isFinite(numericId)) {
+                return "#";
+            }
+            return detailUrlBase.replace("/0/", `/${numericId}/`);
+        }
+
+        mapData.forEach(item => {
+            const marker = L.marker([item.lat, item.lon]).addTo(map);
+            const openText = item.open ? "&#272;ang m&#7903;" : "&#272;&#243;ng c&#7917;a";
+            const emergencyText = item.emergency ? "C&#7845;p c&#7913;u 24/7" : "Kh&#244;ng c&#7845;p c&#7913;u 24/7";
+            const distanceText = typeof item.distance_km === "number" ? `${item.distance_km} km` : "";
+            const popupHtml = `
+                <div class="map-popup">
+                    <div class="map-popup-title">${escapeHtml(item.name)}</div>
+                    <div class="map-popup-meta">${escapeHtml(item.phuong || "Chua ro phuong")}</div>
+                    <div class="map-popup-meta">${openText}${distanceText ? ` - ${distanceText}` : ""}</div>
+                    <div class="map-popup-meta">${emergencyText}</div>
+                    <a class="map-popup-link" href="${detailUrlForId(item.id)}">Xem chi ti&#7871;t</a>
+                </div>
+            `;
+            marker.bindPopup(popupHtml);
+        });
+
+        function setLocateButtonActive(active) {
+            if (!locateControlButton) {
+                return;
+            }
+            locateControlButton.classList.toggle("locate-active", !!active);
+            locateControlButton.setAttribute("aria-pressed", active ? "true" : "false");
+        }
+
+        function clearUserLocation() {
+            if (userMarker) {
+                map.removeLayer(userMarker);
+                userMarker = null;
+            }
+            if (userAccuracyCircle) {
+                map.removeLayer(userAccuracyCircle);
+                userAccuracyCircle = null;
+            }
+            setLocateButtonActive(false);
+        }
+
+        function setUserLocation(lat, lon, focusMap = false, accuracy = null) {
+            if (!Number.isFinite(lat) || !Number.isFinite(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                return;
+            }
+            if (userMarker) {
+                userMarker.setLatLng([lat, lon]);
+            } else {
+                userMarker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: "home-user-marker-wrap",
+                        html: '<div class="home-user-marker"></div>',
+                        iconSize: [17, 17],
+                        iconAnchor: [8.5, 8.5],
+                        popupAnchor: [0, -10],
+                    }),
+                }).addTo(map);
+                userMarker.bindPopup("V\u1ecb tr\u00ed c\u1ee7a b\u1ea1n");
+            }
+
+            if (Number.isFinite(accuracy) && accuracy > 0) {
+                const radius = Math.max(accuracy / 2, 20);
+                if (userAccuracyCircle) {
+                    userAccuracyCircle.setLatLng([lat, lon]);
+                    userAccuracyCircle.setRadius(radius);
+                } else {
+                    userAccuracyCircle = L.circle([lat, lon], {
+                        radius: radius,
+                        weight: 2,
+                        stroke: false,
+                        fillColor: "#2a93ee",
+                        fillOpacity: 0.15,
+                    }).addTo(map);
+                }
+            }
+
+            if (focusMap) {
+                map.setView([lat, lon], 14);
+            }
+        }
+
+        function locateUser(focusMap = true) {
+            if (!navigator.geolocation) {
+                alert("Tr\u00ecnh duy\u1ec7t kh\u00f4ng h\u1ed7 tr\u1ee3 \u0111\u1ecbnh v\u1ecb.");
+                return;
+            }
+            setLocateButtonActive(true);
+            navigator.geolocation.getCurrentPosition((pos) => {
+                const lat = Number(pos.coords.latitude);
+                const lon = Number(pos.coords.longitude);
+                const accuracy = Number(pos.coords.accuracy);
+
+                if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+                    setLocateButtonActive(false);
+                    alert("Tá»a Ä‘á»™ vá»‹ trÃ­ khÃ´ng há»£p lá»‡.");
+                    return;
+                }
+
+                document.getElementById("lat").value = lat.toFixed(6);
+                document.getElementById("lon").value = lon.toFixed(6);
+                setUserLocation(lat, lon, focusMap, accuracy);
+            }, () => {
+                setLocateButtonActive(false);
+                alert("Vui l\u00f2ng cho ph\u00e9p truy c\u1eadp v\u1ecb tr\u00ed!");
+            }, {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 0,
+            });
+        }
+
+        function isValidLatLon(lat, lon) {
+            return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+        }
+
+        const HomeLocateControl = L.Control.extend({
+            options: { position: "topleft" },
+            onAdd: function () {
+                const button = L.DomUtil.create("button", "home-locate-control leaflet-bar");
+                button.type = "button";
+                button.title = "\u0110\u1ecbnh v\u1ecb v\u1ecb tr\u00ed c\u1ee7a b\u1ea1n";
+                button.setAttribute("aria-label", "\u0110\u1ecbnh v\u1ecb v\u1ecb tr\u00ed c\u1ee7a b\u1ea1n");
+                button.setAttribute("aria-pressed", "false");
+                button.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
+                L.DomEvent.disableClickPropagation(button);
+                L.DomEvent.on(button, "click", (event) => {
+                    L.DomEvent.stop(event);
+                    const active = button.classList.contains("locate-active");
+                    if (active) {
+                        clearUserLocation();
+                        return;
+                    }
+                    locateUser(true);
+                });
+                locateControlButton = button;
+                return button;
+            }
+        });
+        map.addControl(new HomeLocateControl());
+
+        const userLat = "{{ user_lat|default:'' }}";
+        const userLon = "{{ user_lon|default:'' }}";
+        if (userLat && userLon) {
+            const uLat = parseFloat(userLat);
+            const uLon = parseFloat(userLon);
+            if (isValidLatLon(uLat, uLon)) {
+                setUserLocation(uLat, uLon, true);
+            }
+        }
+
+        const geoForm = document.getElementById("geo-form");
+        geoForm?.addEventListener("submit", (event) => {
+            const latValue = document.getElementById("lat")?.value?.trim() || "";
+            const lonValue = document.getElementById("lon")?.value?.trim() || "";
+            if (!latValue && !lonValue) {
+                return;
+            }
+            const lat = parseFloat(latValue);
+            const lon = parseFloat(lonValue);
+            if (!isValidLatLon(lat, lon)) {
+                event.preventDefault();
+                alert("Tá»a Ä‘á»™ khÃ´ng há»£p lá»‡: VÄ© Ä‘á»™ trong [-90, 90], Kinh Ä‘á»™ trong [-180, 180].");
+            }
+        });
+
+        const locateBtn = document.getElementById("locate-btn");
+        locateBtn?.addEventListener("click", (event) => {
+            event.preventDefault();
+            locateUser(true);
+        });
+    </script>
+</body>
+</html>
+
+

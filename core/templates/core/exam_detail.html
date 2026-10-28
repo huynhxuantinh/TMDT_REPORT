@@ -1,0 +1,215 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chi ti&#7871;t phi&#7871;u kh&#225;m</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f6f3ee;
+            --bg-2: #eef4f0;
+            --ink: #1f2a2b;
+            --muted: #5b6b6a;
+            --primary: #0b6b5b;
+            --card: #ffffff;
+            --shadow: 0 18px 50px rgba(25, 35, 34, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 85% -10%, rgba(15, 138, 116, 0.16), transparent 60%),
+                radial-gradient(900px 500px at -10% 20%, rgba(242, 197, 124, 0.18), transparent 60%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 28px 20px 60px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 22px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            border-radius: 18px;
+            box-shadow: 0 10px 25px rgba(17, 28, 27, 0.06);
+            backdrop-filter: blur(10px);
+        }
+
+        .brand h1 {
+            font-family: "Playfair Display", serif;
+            font-size: 26px;
+            margin: 0;
+        }
+
+        .brand span {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+        }
+
+        .btn.ghost {
+            color: var(--primary);
+            border-color: rgba(11, 107, 91, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .card {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 18px;
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            box-shadow: var(--shadow);
+            margin-top: 18px;
+        }
+
+        .meta {
+            margin: 0 0 8px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .section-title {
+            font-family: "Playfair Display", serif;
+            font-size: 20px;
+            margin: 0 0 10px;
+        }
+
+        .exam-images {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .exam-images img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 1px solid rgba(31, 42, 43, 0.12);
+            background: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div class="brand">
+                <h1>Phi&#7871;u kh&#225;m</h1>
+                <span>{{ benh_nhan.ho_ten }} &#183; {{ benh_nhan.so_dien_thoai }}</span>
+            </div>
+            {% if request.user.bac_si %}
+                <a class="btn ghost" href="{% url 'bac_si_phieu_kham_edit' phieu.id %}">S&#7917;a phi&#7871;u</a>
+                <a class="btn ghost" href="{% url 'bac_si_home' %}">&#8592; Trang b&#225;c s&#297;</a>
+            {% else %}
+                <a class="btn ghost" href="{% url 'medical_history' %}">&#8592; L&#7883;ch s&#7917; kh&#225;m</a>
+            {% endif %}
+        </header>
+
+        <div class="card">
+            <p class="meta"><strong>B&#7879;nh nh&#226;n:</strong> {{ phieu.benh_nhan.ho_ten }}</p>
+            <p class="meta"><strong>B&#225;c s&#297;:</strong> {{ phieu.lich_kham.bac_si.ho_ten }}</p>
+            <p class="meta"><strong>B&#7879;nh vi&#7879;n:</strong> {{ phieu.lich_kham.bac_si.benh_vien.ten }}</p>
+            <p class="meta"><strong>Ng&#224;y kh&#225;m:</strong> {{ phieu.lich_kham.ngay_kham|date:"d/m/Y" }}</p>
+            <p class="meta">
+                <strong>Gi&#7901; kh&#225;m:</strong> {{ phieu.lich_kham.gio_kham|time:"H\hi" }}
+                ({% with h=phieu.lich_kham.gio_kham|time:"H" %}{% if h < "12" %}s&#225;ng{% elif h < "18" %}chi&#7873;u{% else %}t&#7889;i{% endif %}{% endwith %})
+            </p>
+            <p class="meta">
+                <strong>Ng&#224;y l&#7853;p:</strong> {{ phieu.ngay_lap|date:"d/m/Y H\hi" }}
+                ({% with h=phieu.ngay_lap|time:"H" %}{% if h < "12" %}s&#225;ng{% elif h < "18" %}chi&#7873;u{% else %}t&#7889;i{% endif %}{% endwith %})
+            </p>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Tri&#7879;u ch&#7913;ng</h2>
+            <div>{{ phieu.trieu_chung }}</div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">Ch&#7849;n &#273;o&#225;n</h2>
+            <div>{{ phieu.chan_doan }}</div>
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">H&#432;&#7899;ng &#273;i&#7873;u tr&#7883;</h2>
+            <div>{{ phieu.huong_dieu_tri }}</div>
+        </div>
+
+        <div class="card">
+            {% include 'core/exam_services/read_only.html' %}
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">&#7842;nh &#273;&#237;nh k&#232;m</h2>
+            {% if exam_images %}
+                <div class="exam-images">
+                    {% for img in exam_images %}
+                        <img src="{{ img.hinh_anh.url }}" alt="&#7842;nh phi&#7871;u kh&#225;m">
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="meta">Ch&#432;a c&#243; &#7843;nh &#273;&#237;nh k&#232;m.</div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <h2 class="section-title">L&#7883;ch s&#7917; ch&#7881;nh s&#7917;a</h2>
+            {% if edit_logs %}
+                {% for log in edit_logs %}
+                    <div style="margin-bottom:12px;">
+                        <div class="meta">
+                            {{ log.thoi_gian|date:"d/m/Y H\hi" }}
+                            ({% with h=log.thoi_gian|time:"H" %}{% if h < "12" %}s&#225;ng{% elif h < "18" %}chi&#7873;u{% else %}t&#7889;i{% endif %}{% endwith %}) &#183;
+                            {% if log.nguoi_thuc_hien %}{{ log.nguoi_thuc_hien.username }}{% else %}H&#7879; th&#7889;ng{% endif %}
+                        </div>
+                        <div><strong>Tri&#7879;u ch&#7913;ng:</strong></div>
+                        <div class="meta">C&#361;: {{ log.du_lieu_cu.trieu_chung }}</div>
+                        <div class="meta">M&#7899;i: {{ log.du_lieu_moi.trieu_chung }}</div>
+                        <div><strong>Ch&#7849;n &#273;o&#225;n:</strong></div>
+                        <div class="meta">C&#361;: {{ log.du_lieu_cu.chan_doan }}</div>
+                        <div class="meta">M&#7899;i: {{ log.du_lieu_moi.chan_doan }}</div>
+                        <div><strong>H&#432;&#7899;ng &#273;i&#7873;u tr&#7883;:</strong></div>
+                        <div class="meta">C&#361;: {{ log.du_lieu_cu.huong_dieu_tri }}</div>
+                        <div class="meta">M&#7899;i: {{ log.du_lieu_moi.huong_dieu_tri }}</div>
+                    </div>
+                    {% if not forloop.last %}
+                        <hr style="border:none; border-top:1px solid rgba(31,42,43,0.12); margin:14px 0;">
+                    {% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="meta">Ch&#432;a c&#243; ch&#7881;nh s&#7917;a n&#224;o.</div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
+
+

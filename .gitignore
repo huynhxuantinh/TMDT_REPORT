@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+db.sqlite3
+venv/
+.env
+.env.*
+!.env.example
+media/
+.venv/
+.vnpay-test/
+.codex/
+.agents/
+*.log

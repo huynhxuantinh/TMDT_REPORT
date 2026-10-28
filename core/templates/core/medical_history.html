@@ -1,0 +1,188 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L&#7883;ch s&#7917; kh&#225;m</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f6f3ee;
+            --bg-2: #eef4f0;
+            --ink: #1f2a2b;
+            --muted: #5b6b6a;
+            --primary: #0b6b5b;
+            --primary-2: #0f8a74;
+            --card: #ffffff;
+            --shadow: 0 18px 50px rgba(25, 35, 34, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 85% -10%, rgba(15, 138, 116, 0.16), transparent 60%),
+                radial-gradient(900px 500px at -10% 20%, rgba(242, 197, 124, 0.18), transparent 60%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 28px 20px 60px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 22px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            border-radius: 18px;
+            box-shadow: 0 10px 25px rgba(17, 28, 27, 0.06);
+            backdrop-filter: blur(10px);
+        }
+
+        .brand h1 {
+            font-family: "Playfair Display", serif;
+            font-size: 26px;
+            margin: 0;
+        }
+
+        .brand span {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 1px solid transparent;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn.ghost {
+            color: var(--primary);
+            border-color: rgba(11, 107, 91, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .btn.ghost:hover {
+            box-shadow: 0 10px 16px rgba(11, 107, 91, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 18px;
+            border-radius: 18px;
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            box-shadow: var(--shadow);
+        }
+
+        .card h3 {
+            margin: 0 0 8px;
+            font-size: 18px;
+        }
+
+        .meta {
+            margin: 0 0 6px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            background: rgba(11, 107, 91, 0.1);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .section {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .label {
+            font-weight: 600;
+            color: var(--ink);
+        }
+
+        .empty {
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px dashed rgba(31, 42, 43, 0.2);
+            padding: 16px;
+            border-radius: 14px;
+            color: var(--muted);
+            margin-top: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div class="brand">
+                <h1>L&#7883;ch s&#7917; kh&#225;m</h1>
+                <span>{{ benh_nhan.ho_ten }} &#183; {{ benh_nhan.so_dien_thoai }}</span>
+            </div>
+            <a class="btn ghost" href="{% url 'home' %}">&#8592; Trang ch&#7911;</a>
+        </header>
+
+        {% if lich_su %}
+            <div class="grid">
+                {% for item in lich_su %}
+                    <div class="card">
+                        <h3>{{ item.bac_si.ho_ten|default:"B&#225;c s&#297;" }}</h3>
+                        <p class="meta"><strong>Ng&#224;y kh&#225;m:</strong> {{ item.ngay_kham|date:"d/m/Y" }}</p>
+                        <p class="meta"><strong>B&#7879;nh vi&#7879;n:</strong> {{ item.benh_vien.ten|default:"&#8212;" }}</p>
+                        <span class="badge">&#272;&#227; kh&#225;m</span>
+
+                        <div class="section">
+                            <div><span class="label">Tri&#7879;u ch&#7913;ng:</span> {{ item.trieu_chung }}</div>
+                            <div><span class="label">Ch&#7849;n &#273;o&#225;n:</span> {{ item.chan_doan }}</div>
+                            <div><span class="label">H&#432;&#7899;ng &#273;i&#7873;u tr&#7883;:</span> {{ item.huong_dieu_tri }}</div>
+                        </div>
+                        {% if item.phieu_kham %}
+                            <div class="section">
+                                <a class="btn ghost" href="{% url 'phieu_kham_detail' item.phieu_kham.id %}">Xem phi&#7871;u kh&#225;m</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty">B&#7841;n ch&#432;a c&#243; l&#7883;ch s&#7917; kh&#225;m.</div>
+        {% endif %}
+    </div>
+</body>
+</html>
+
+

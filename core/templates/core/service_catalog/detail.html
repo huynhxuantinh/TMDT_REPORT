@@ -1,0 +1,47 @@
+{% extends 'core/service_catalog/base.html' %}
+{% load catalog_money %}
+{% block title %}{{ service.ma_dich_vu }} · {{ service.ten }}{% endblock %}
+{% block content %}
+<section class="card">
+    <h1>{{ service.ma_dich_vu }} · {{ service.ten }}</h1>
+    <dl>
+        <dt>Nhóm dịch vụ</dt><dd>{{ service.nhom }}</dd>
+        <dt>Đơn giá chung</dt><dd>{{ service.don_gia|vnd }}</dd>
+        <dt>Trạng thái</dt><dd>{% if service.dang_ap_dung %}Đang áp dụng{% else %}Ngừng áp dụng{% endif %}</dd>
+        <dt>Mô tả</dt><dd class="description">{{ service.mo_ta|default:'Chưa có mô tả.'|linebreaksbr }}</dd>
+        <dt>Ngày tạo</dt><dd>{{ service.ngay_tao|date:'d/m/Y H:i:s' }}</dd>
+        <dt>Cập nhật gần nhất</dt><dd>{{ service.ngay_cap_nhat|date:'d/m/Y H:i:s' }}</dd>
+    </dl>
+    <div class="actions"><a class="btn primary" href="{% url 'service_edit' service.pk %}">Chỉnh sửa dịch vụ</a>
+        <form method="post" action="{% url 'service_status' service.pk %}">{% csrf_token %}
+            <input type="hidden" name="dang_ap_dung" value="{% if service.dang_ap_dung %}0{% else %}1{% endif %}">
+            <button class="btn" type="submit">{% if service.dang_ap_dung %}Ngừng áp dụng{% else %}Áp dụng lại{% endif %}</button>
+        </form>
+        <a class="btn" href="{% url 'service_list' %}">Về danh sách</a>
+    </div>
+</section>
+<section class="card">
+    <h2>Lịch sử thay đổi</h2>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Thời gian / người thực hiện</th><th>Thao tác</th><th>Trước thay đổi</th><th>Sau thay đổi</th></tr></thead>
+        <tbody>{% for log in history_page %}<tr>
+            <td>{{ log.thoi_gian|date:'d/m/Y H:i:s' }}<br>{{ log.nguoi_thuc_hien.username|default:'Lệnh quản lý / tài khoản đã xóa' }}</td>
+            <td>{{ log.get_hanh_dong_display }}<br>{{ log.ghi_chu }}</td>
+            <td>{% if log.du_lieu_cu %}
+                {{ log.du_lieu_cu.ten }}<br>{{ log.du_lieu_cu.nhom }}<br>{{ log.du_lieu_cu.don_gia|vnd }}<br>
+                {% if log.du_lieu_cu.dang_ap_dung %}Đang áp dụng{% else %}Ngừng áp dụng{% endif %}
+                <details><summary>Mô tả</summary>{{ log.du_lieu_cu.mo_ta|default:'—'|linebreaksbr }}</details>
+            {% else %}—{% endif %}</td>
+            <td>{{ log.du_lieu_moi.ten }}<br>{{ log.du_lieu_moi.nhom }}<br>{{ log.du_lieu_moi.don_gia|vnd }}<br>
+                {% if log.du_lieu_moi.dang_ap_dung %}Đang áp dụng{% else %}Ngừng áp dụng{% endif %}
+                <details><summary>Mô tả</summary>{{ log.du_lieu_moi.mo_ta|default:'—'|linebreaksbr }}</details>
+            </td>
+        </tr>{% empty %}<tr><td colspan="4">Chưa có lịch sử thay đổi.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <nav class="pagination" aria-label="Phân trang lịch sử">
+        {% if history_page.has_previous %}<a href="?page={{ history_page.previous_page_number }}">Trang trước</a>{% endif %}
+        <span>Trang {{ history_page.number }} / {{ history_page.paginator.num_pages }}</span>
+        {% if history_page.has_next %}<a href="?page={{ history_page.next_page_number }}">Trang sau</a>{% endif %}
+    </nav>
+</section>
+{% endblock %}

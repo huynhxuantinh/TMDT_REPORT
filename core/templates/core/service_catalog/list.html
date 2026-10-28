@@ -1,0 +1,36 @@
+{% extends 'core/service_catalog/base.html' %}
+{% load catalog_money %}
+{% block content %}
+<section class="card">
+    <div class="head"><h1>Dịch vụ &amp; bảng giá</h1><a class="btn primary" href="{% url 'service_create' %}">Thêm dịch vụ</a></div>
+    <form method="get" class="filters">
+        <div><label for="search">Mã hoặc tên dịch vụ</label><input id="search" name="q" value="{{ q }}" placeholder="Tìm kiếm dịch vụ"></div>
+        <div><label for="group">Nhóm dịch vụ</label><select id="group" name="nhom"><option value="">Tất cả nhóm</option>
+            {% for group in groups %}<option value="{{ group }}" {% if nhom == group %}selected{% endif %}>{{ group }}</option>{% endfor %}
+        </select></div>
+        <div><label for="status">Trạng thái</label><select id="status" name="trang_thai">
+            <option value="">Tất cả trạng thái</option><option value="1" {% if trang_thai == '1' %}selected{% endif %}>Đang áp dụng</option><option value="0" {% if trang_thai == '0' %}selected{% endif %}>Ngừng áp dụng</option>
+        </select></div>
+        <button class="btn primary" type="submit">Tìm kiếm / Lọc</button><a class="btn" href="{% url 'service_list' %}">Xóa bộ lọc</a>
+    </form>
+    <p class="muted">{{ page_obj.paginator.count }} dịch vụ</p>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Mã dịch vụ</th><th>Tên dịch vụ</th><th>Nhóm</th><th>Đơn giá</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody>{% for service in page_obj %}<tr>
+            <td>{{ service.ma_dich_vu }}</td><td><a href="{% url 'service_detail' service.pk %}">{{ service.ten }}</a></td><td>{{ service.nhom }}</td><td class="money">{{ service.don_gia|vnd }}</td>
+            <td><span class="badge {% if service.dang_ap_dung %}active{% endif %}">{% if service.dang_ap_dung %}Đang áp dụng{% else %}Ngừng áp dụng{% endif %}</span></td>
+            <td><div class="actions"><a href="{% url 'service_detail' service.pk %}">Chi tiết</a><a href="{% url 'service_edit' service.pk %}">Chỉnh sửa</a>
+                <form method="post" action="{% url 'service_status' service.pk %}">{% csrf_token %}
+                    <input type="hidden" name="dang_ap_dung" value="{% if service.dang_ap_dung %}0{% else %}1{% endif %}">
+                    <button type="submit" class="btn">{% if service.dang_ap_dung %}Ngừng áp dụng{% else %}Áp dụng lại{% endif %}</button>
+                </form></div>
+            </td>
+        </tr>{% empty %}<tr><td colspan="6">Không có dịch vụ phù hợp. Bạn có thể thêm dịch vụ hoặc thay đổi bộ lọc.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <nav class="pagination" aria-label="Phân trang">
+        {% if page_obj.has_previous %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Trang trước</a>{% endif %}
+        <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page_obj.next_page_number }}">Trang sau</a>{% endif %}
+    </nav>
+</section>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% load catalog_money %}
+<section aria-label="Dịch vụ đã thực hiện">
+    <h3>DỊCH VỤ Y TẾ ĐÃ THỰC HIỆN</h3>
+    {% if billing_invoice.nguon == 'services' %}<p>Giá đã chốt trên hóa đơn #{{ billing_invoice.pk }}, phiên bản {{ billing_invoice.phien_ban }} · {{ billing_invoice.get_trang_thai_display }}.</p>
+    {% else %}<p>Giá tham khảo từ danh mục hiện tại.{% if billing_invoice %} Hóa đơn thử nghiệm cũ được giữ nguyên số tiền {{ billing_invoice.so_tien|vnd }}.{% endif %}</p>{% endif %}
+    <div style="overflow-x:auto;"><table style="width:100%; border-collapse:collapse; text-align:left;">
+        <thead><tr><th>Dịch vụ</th><th>Đơn giá</th><th>Số lượng</th><th>Thành tiền</th><th>Ghi chú</th></tr></thead>
+        <tbody>{% for row in performed_services %}<tr>
+            <td style="padding:10px 6px;">{{ row.display_code }} · {{ row.display_name }}{% if not row.dich_vu.dang_ap_dung %}<br><small>Đã ngừng áp dụng trong danh mục</small>{% endif %}</td>
+            <td style="white-space:nowrap;">{{ row.display_price|vnd }}</td><td>{{ row.so_luong }}</td><td style="white-space:nowrap;">{{ row.line_total|vnd }}</td><td>{{ row.ghi_chu|linebreaksbr }}</td>
+        </tr>{% empty %}<tr><td colspan="5">Chưa ghi nhận dịch vụ.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if billing_invoice %}{% include 'core/insurance/invoice_summary.html' with invoice=billing_invoice %}{% else %}<p>Tổng dịch vụ tham khảo: {{ services_total|vnd }}</p>{% endif %}
+</section>

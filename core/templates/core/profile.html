@@ -1,0 +1,339 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>H&#7891; s&#417; c&#7911;a t&#244;i</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f6f3ee;
+            --bg-2: #eef4f0;
+            --ink: #1f2a2b;
+            --muted: #5b6b6a;
+            --primary: #0b6b5b;
+            --primary-2: #0f8a74;
+            --accent: #f2c57c;
+            --card: #ffffff;
+            --ring: rgba(11, 107, 91, 0.18);
+            --shadow: 0 18px 50px rgba(25, 35, 34, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 85% -10%, rgba(15, 138, 116, 0.16), transparent 60%),
+                radial-gradient(900px 500px at -10% 20%, rgba(242, 197, 124, 0.18), transparent 60%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 28px 20px 60px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 22px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            border-radius: 18px;
+            box-shadow: 0 10px 25px rgba(17, 28, 27, 0.06);
+            backdrop-filter: blur(10px);
+        }
+
+        .brand h1 {
+            font-family: "Playfair Display", serif;
+            font-size: 24px;
+            margin: 0;
+            letter-spacing: 0.4px;
+        }
+
+        .brand span {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 1px solid transparent;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .btn.primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 10px 18px rgba(11, 107, 91, 0.25);
+        }
+
+        .btn.primary:hover {
+            background: var(--primary-2);
+            transform: translateY(-1px);
+        }
+
+        .btn.ghost {
+            color: var(--primary);
+            border-color: rgba(11, 107, 91, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .btn.ghost:hover {
+            box-shadow: 0 10px 16px rgba(11, 107, 91, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .section-title {
+            font-family: "Playfair Display", serif;
+            font-size: 28px;
+            margin: 26px 0 16px;
+        }
+
+        .messages {
+            margin: 20px 0 8px;
+            display: grid;
+            gap: 10px;
+        }
+
+        .message {
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            border: 1px solid transparent;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .message.success {
+            border-color: rgba(11, 107, 91, 0.4);
+            color: var(--primary);
+            box-shadow: 0 10px 20px rgba(11, 107, 91, 0.12);
+        }
+
+        .message.error {
+            border-color: rgba(180, 52, 52, 0.5);
+            color: #9d2c2c;
+            box-shadow: 0 10px 20px rgba(180, 52, 52, 0.12);
+        }
+
+        .message.warning {
+            border-color: rgba(212, 149, 54, 0.5);
+            color: #9a5d10;
+        }
+
+        .message.info {
+            border-color: rgba(58, 100, 170, 0.45);
+            color: #2f4b85;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 22px;
+            border-radius: 20px;
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            box-shadow: var(--shadow);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .field label {
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(31, 42, 43, 0.18);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border 0.2s ease, box-shadow 0.2s ease;
+            background: #fff;
+        }
+
+        .field textarea {
+            min-height: 110px;
+            resize: vertical;
+        }
+
+        .field input:focus,
+        .field select:focus,
+        .field textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--ring);
+        }
+
+        .divider {
+            margin: 22px 0;
+            border: none;
+            border-top: 1px solid rgba(31, 42, 43, 0.12);
+        }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 18px;
+        }
+
+        .subtle {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        @media (max-width: 720px) {
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div class="brand">
+                <h1>H&#7891; s&#417; c&#7911;a t&#244;i</h1>
+                <span>C&#7853;p nh&#7853;t th&#244;ng tin c&#225; nh&#226;n v&#224; b&#7843;o hi&#7875;m y t&#7871;</span>
+            </div>
+            <a class="btn ghost" href="/">&#8592; Trang ch&#7911;</a>
+        </header>
+
+        {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                    <div class="message {{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <h2 class="section-title">Th&#244;ng tin c&#225; nh&#226;n</h2>
+
+        <form method="post" class="card">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_profile">
+
+            <div class="grid">
+                <div class="field">
+                    <label>H&#7885; t&#234;n</label>
+                    <input type="text" name="ho_ten" value="{{ bn.ho_ten }}">
+                </div>
+
+                <div class="field">
+                    <label>S&#7889; &#273;i&#7879;n tho&#7841;i</label>
+                    <input type="text" name="so_dien_thoai" value="{{ bn.so_dien_thoai }}">
+                </div>
+
+                <div class="field">
+                    <label>Ng&#224;y sinh</label>
+                    <input type="date" name="ngay_sinh" value="{{ bn.ngay_sinh|date:'Y-m-d' }}">
+                </div>
+
+                <div class="field">
+                    <label>Gi&#7899;i t&#237;nh</label>
+                    <select name="gioi_tinh">
+                        <option value="nam" {% if bn.gioi_tinh == "nam" %}selected{% endif %}>Nam</option>
+                        <option value="nu" {% if bn.gioi_tinh == "nu" %}selected{% endif %}>N&#7919;</option>
+                        <option value="khac" {% if bn.gioi_tinh == "khac" %}selected{% endif %}>Kh&#225;c</option>
+                    </select>
+                </div>
+
+                <div class="field">
+                    <label>&#272;&#7883;a ch&#7881;</label>
+                    <textarea name="dia_chi">{{ bn.dia_chi }}</textarea>
+                </div>
+            </div>
+
+            <hr class="divider">
+
+            <h3>B&#7843;o hi&#7875;m y t&#7871;</h3>
+            <p class="subtle">&#272;i&#7873;n th&#244;ng tin BHYT n&#7871;u b&#7841;n c&#243;.</p>
+
+            <div class="grid">
+                <div class="field">
+                    <label>M&#227; BHYT</label>
+                    <input type="text" name="ma_bhyt"
+                           value="{% if bn.bhyt %}{{ bn.bhyt.ma_bhyt }}{% endif %}">
+                </div>
+
+                <div class="field">
+                    <label>Ng&#224;y c&#7845;p</label>
+                    <input type="date" name="ngay_cap"
+                           value="{% if bn.bhyt %}{{ bn.bhyt.ngay_cap|date:'Y-m-d' }}{% endif %}">
+                </div>
+
+                <div class="field">
+                    <label>Ng&#224;y h&#7871;t h&#7841;n</label>
+                    <input type="date" name="ngay_het_han"
+                           value="{% if bn.bhyt %}{{ bn.bhyt.ngay_het_han|date:'Y-m-d' }}{% endif %}">
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn primary" type="submit">L&#432;u thay &#273;&#7893;i</button>
+                <a class="btn ghost" href="/">Quay l&#7841;i trang ch&#7911;</a>
+            </div>
+        </form>
+
+        <h2 class="section-title">&#272;&#7893;i m&#7853;t kh&#7849;u</h2>
+        <form method="post" class="card">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="change_password">
+
+            <div class="grid">
+                <div class="field">
+                    <label>M&#7853;t kh&#7849;u hi&#7879;n t&#7841;i</label>
+                    <input type="password" name="current_password" autocomplete="current-password">
+                </div>
+
+                <div class="field">
+                    <label>M&#7853;t kh&#7849;u m&#7899;i</label>
+                    <input type="password" name="new_password" autocomplete="new-password">
+                </div>
+
+                <div class="field">
+                    <label>X&#225;c nh&#7853;n m&#7853;t kh&#7849;u m&#7899;i</label>
+                    <input type="password" name="confirm_password" autocomplete="new-password">
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn primary" type="submit">&#272;&#7893;i m&#7853;t kh&#7849;u</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
+
+

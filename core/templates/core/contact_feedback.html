@@ -1,0 +1,177 @@
+﻿{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Li&#234;n h&#7879; &amp; G&#243;p &#253;</title>
+    <link rel="icon" type="image/png" href="{% static 'core/img/benh-vien-3t-logo.png' %}">
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f5f7f4;
+            --bg-2: #edf3ef;
+            --ink: #1f2c2a;
+            --muted: #566563;
+            --primary: #0e6f60;
+            --primary-2: #13806f;
+            --card: #ffffff;
+            --border: rgba(18, 46, 42, 0.12);
+            --ring: rgba(14, 111, 96, 0.2);
+            --shadow-soft: 0 12px 30px rgba(16, 35, 31, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 95% -10%, rgba(19, 128, 111, 0.13), transparent 58%),
+                radial-gradient(900px 500px at -10% 15%, rgba(110, 157, 143, 0.13), transparent 58%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page { max-width: 860px; margin: 0 auto; padding: 24px 20px 48px; }
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 20px;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow-soft);
+        }
+        .title {
+            margin: 0;
+            font-family: "Playfair Display", serif;
+            font-size: 30px;
+            line-height: 1.15;
+        }
+        .subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 1px solid rgba(14, 111, 96, 0.35);
+            color: var(--primary);
+            background: rgba(255, 255, 255, 0.95);
+        }
+        .btn:hover { transform: translateY(-1px); }
+
+        .card {
+            margin-top: 14px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-soft);
+            padding: 16px;
+        }
+        .form-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+        .form-field label { font-weight: 600; color: #23403b; font-size: 14px; }
+        .form-field input, .form-field textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(31, 42, 43, 0.2);
+            font-family: inherit;
+            font-size: 14px;
+            background: #fff;
+        }
+        .form-field input:focus, .form-field textarea:focus {
+            outline: 2px solid var(--ring);
+            border-color: rgba(14, 111, 96, 0.4);
+        }
+        .error { color: #9d2c2c; font-size: 13px; margin: 2px 0 0; }
+
+        .alert {
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            border: 1px solid rgba(31, 42, 43, 0.14);
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .alert.error { background: #fff1f1; border-color: #ffc8c8; color: #9f2d2d; }
+        .alert.success { background: #eefaf4; border-color: #bfe9cf; color: #176b3a; }
+        .alert.info { background: #eef6ff; border-color: #bfd8ff; color: #1d4b8f; }
+
+        .submit-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+        .btn.primary {
+            border-color: transparent;
+            background: var(--primary);
+            color: #fff;
+        }
+        .btn.primary:hover { background: var(--primary-2); }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div>
+                <h1 class="title">Li&#234;n h&#7879; &amp; G&#243;p &#253;</h1>
+                <p class="subtitle">G&#7917;i ph&#7843;n h&#7891;i &#273;&#7875; &#273;&#7897;i ng&#361; c&#7843;i ti&#7871;n h&#7879; th&#7889;ng nhanh h&#417;n.</p>
+            </div>
+            <a class="btn" href="{% url 'home' %}">&larr; Trang ch&#7911;</a>
+        </header>
+
+        <section class="card">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags %}{{ message.tags }}{% else %}info{% endif %}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" novalidate>
+                {% csrf_token %}
+
+                <div class="form-field">
+                    <label for="{{ form.ho_ten.id_for_label }}">H&#7885; t&#234;n</label>
+                    {{ form.ho_ten }}
+                    {% for error in form.ho_ten.errors %}<p class="error">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.email.id_for_label }}">Email li&#234;n h&#7879;</label>
+                    {{ form.email }}
+                    {% for error in form.email.errors %}<p class="error">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.chu_de.id_for_label }}">Ch&#7911; &#273;&#7873;</label>
+                    {{ form.chu_de }}
+                    {% for error in form.chu_de.errors %}<p class="error">{{ error }}</p>{% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.noi_dung.id_for_label }}">N&#7897;i dung</label>
+                    {{ form.noi_dung }}
+                    {% for error in form.noi_dung.errors %}<p class="error">{{ error }}</p>{% endfor %}
+                </div>
+
+                {% for error in form.non_field_errors %}
+                    <p class="error">{{ error }}</p>
+                {% endfor %}
+
+                <div class="submit-row">
+                    <button class="btn primary" type="submit">G&#7917;i g&#243;p &#253;</button>
+                    <a class="btn" href="{% url 'home' %}">Quay l&#7841;i</a>
+                </div>
+            </form>
+        </section>
+    </div>
+</body>
+</html>
+
+

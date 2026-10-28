@@ -1,0 +1,174 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L&#7883;ch l&#224;m vi&#7879;c b&#225;c s&#297;</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f6f3ee;
+            --bg-2: #eef4f0;
+            --ink: #1f2a2b;
+            --muted: #5b6b6a;
+            --primary: #0b6b5b;
+            --card: #ffffff;
+            --shadow: 0 18px 50px rgba(25, 35, 34, 0.12);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 85% -10%, rgba(15, 138, 116, 0.16), transparent 60%),
+                radial-gradient(900px 500px at -10% 20%, rgba(242, 197, 124, 0.18), transparent 60%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 28px 20px 60px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 18px 22px;
+            background: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            border-radius: 18px;
+            box-shadow: 0 10px 25px rgba(17, 28, 27, 0.06);
+            backdrop-filter: blur(10px);
+        }
+
+        .brand h1 {
+            font-family: "Playfair Display", serif;
+            font-size: 24px;
+            margin: 0;
+        }
+
+        .brand span {
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .card {
+            background: var(--card);
+            padding: 22px;
+            border-radius: 20px;
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            box-shadow: var(--shadow);
+            margin-top: 16px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(31, 42, 43, 0.08);
+            text-align: left;
+            font-size: 14px;
+        }
+
+        input[type="time"] {
+            padding: 6px 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(31, 42, 43, 0.18);
+            font-family: inherit;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 1px solid transparent;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .btn.primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 10px 18px rgba(11, 107, 91, 0.25);
+        }
+
+        .btn.ghost {
+            color: var(--primary);
+            border-color: rgba(11, 107, 91, 0.3);
+            background: rgba(255, 255, 255, 0.9);
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div class="brand">
+                <h1>L&#7883;ch l&#224;m vi&#7879;c</h1>
+                <span>Thi&#7871;t l&#7853;p gi&#7901; l&#224;m vi&#7879;c theo t&#7915;ng ng&#224;y</span>
+            </div>
+            <a class="btn ghost" href="{% url 'bac_si_home' %}">Quay l&#7841;i</a>
+        </header>
+
+        {% if messages %}
+            <div class="card">
+                {% for message in messages %}
+                    <div style="font-weight:600;">{{ message }}</div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post" class="card">
+            {% csrf_token %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Th&#7913;</th>
+                        <th>Ngh&#7881;</th>
+                        <th>Gi&#7901; b&#7855;t &#273;&#7847;u</th>
+                        <th>Gi&#7901; k&#7871;t th&#250;c</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in schedule_items %}
+                        <tr>
+                            <td>{{ item.label }}</td>
+                            <td>
+                                <input type="checkbox" name="nghi_{{ item.thu }}" {% if item.nghi %}checked{% endif %}>
+                            </td>
+                            <td>
+                                <input type="time" name="gio_bat_dau_{{ item.thu }}" value="{{ item.gio_bat_dau }}">
+                            </td>
+                            <td>
+                                <input type="time" name="gio_ket_thuc_{{ item.thu }}" value="{{ item.gio_ket_thuc }}">
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div style="margin-top:16px; display:flex; gap:10px;">
+                <button class="btn primary" type="submit">L&#432;u l&#7883;ch l&#224;m vi&#7879;c</button>
+                <a class="btn ghost" href="{% url 'bac_si_home' %}">H&#7911;y</a>
+            </div>
+        </form>
+    </div>
+</body>
+</html>
+
+

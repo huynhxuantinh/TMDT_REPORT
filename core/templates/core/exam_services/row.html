@@ -1,0 +1,8 @@
+<tr class="performed-service-row">
+    <td><label for="{{ form.dich_vu.id_for_label }}">Dịch vụ</label>{{ form.dich_vu }}{{ form.dich_vu.errors }}</td>
+    <td><span class="service-unit-price">—</span></td>
+    <td><label for="{{ form.so_luong.id_for_label }}">Số lượng</label>{{ form.so_luong }}{{ form.so_luong.errors }}</td>
+    <td><span class="service-line-total">—</span></td>
+    <td><label for="{{ form.ghi_chu.id_for_label }}">Ghi chú</label>{{ form.ghi_chu }}{{ form.ghi_chu.errors }}</td>
+    <td><label class="service-delete-label">{{ form.DELETE }} Xóa</label><button type="button" class="btn ghost service-remove" hidden>Xóa dòng</button></td>
+</tr>

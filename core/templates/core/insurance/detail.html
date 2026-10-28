@@ -1,0 +1,24 @@
+{% extends 'core/service_catalog/base.html' %}
+{% block title %}BHYT MÔ PHỎNG · {{ rule.ten }}{% endblock %}
+{% block content %}
+<section class="card">
+    <a href="{% url 'bhyt_rule_list' %}">← Quy tắc BHYT MÔ PHỎNG</a>
+    <h1>BHYT MÔ PHỎNG · {{ rule.ten }}</h1>
+    <p>{{ rule.dich_vu }} · Hỗ trợ {{ rule.ty_le }}% · phiên bản {{ rule.phien_ban }}</p>
+    <p>{{ rule.hieu_luc_tu|date:'d/m/Y' }} — {{ rule.hieu_luc_den|date:'d/m/Y'|default:'Chưa giới hạn' }} · {{ rule.dang_ap_dung|yesno:'Đang áp dụng,Ngừng áp dụng' }}</p>
+    <p>Dùng ngày khám để xét thẻ và quy tắc, yêu cầu bệnh viện có BHYT. Hỗ trợ tính theo từng dòng và làm tròn đến VND, phần 0,5 làm tròn lên. Đây là cấu hình mô phỏng của đồ án.</p>
+    <a class="btn primary" href="{% url 'bhyt_rule_edit' rule.pk %}">Chỉnh sửa / bật tắt</a>
+</section>
+<section class="card"><h2>Lịch sử cấu hình BHYT MÔ PHỎNG</h2>
+    <div class="table-wrap"><table><thead><tr><th>Thời gian / người sửa</th><th>Trước</th><th>Sau</th></tr></thead><tbody>
+        {% for log in history_page %}<tr>
+            <td>{{ log.thoi_gian|date:'d/m/Y H:i:s' }}<br>{{ log.nguoi_thuc_hien.username|default:'Hệ thống' }}</td>
+            <td>{% if log.du_lieu_cu %}{{ log.du_lieu_cu.ten }} · {{ log.du_lieu_cu.ty_le }}%<br>{{ log.du_lieu_cu.hieu_luc_tu }} — {{ log.du_lieu_cu.hieu_luc_den|default:'Chưa giới hạn' }}<br>{{ log.du_lieu_cu.dang_ap_dung|yesno:'Áp dụng,Ngừng' }} · v{{ log.du_lieu_cu.phien_ban }}{% else %}Tạo mới{% endif %}</td>
+            <td>{{ log.du_lieu_moi.ten }} · {{ log.du_lieu_moi.ty_le }}%<br>{{ log.du_lieu_moi.hieu_luc_tu }} — {{ log.du_lieu_moi.hieu_luc_den|default:'Chưa giới hạn' }}<br>{{ log.du_lieu_moi.dang_ap_dung|yesno:'Áp dụng,Ngừng' }} · v{{ log.du_lieu_moi.phien_ban }}</td>
+        </tr>{% empty %}<tr><td colspan="3">Chưa có lịch sử.</td></tr>{% endfor %}
+    </tbody></table></div>
+    <nav class="pagination">{% if history_page.has_previous %}<a href="?page={{ history_page.previous_page_number }}">Trang trước</a>{% endif %}
+    <span>Trang {{ history_page.number }} / {{ history_page.paginator.num_pages }}</span>
+    {% if history_page.has_next %}<a href="?page={{ history_page.next_page_number }}">Trang sau</a>{% endif %}</nav>
+</section>
+{% endblock %}

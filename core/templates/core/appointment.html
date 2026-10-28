@@ -1,0 +1,472 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đặt lịch khám</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f5f7f4;
+            --bg-2: #edf3ef;
+            --ink: #1f2c2a;
+            --muted: #586664;
+            --primary: #0e6f60;
+            --primary-2: #13806f;
+            --card: #ffffff;
+            --ring: rgba(14, 111, 96, 0.2);
+            --border: rgba(18, 46, 42, 0.12);
+            --shadow-soft: 0 10px 26px rgba(16, 35, 31, 0.08);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 95% -10%, rgba(19, 128, 111, 0.13), transparent 58%),
+                radial-gradient(900px 500px at -10% 15%, rgba(110, 157, 143, 0.13), transparent 58%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 24px 20px 44px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 20px;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow-soft);
+            backdrop-filter: blur(10px);
+            animation: riseIn 0.36s ease-out both;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-family: "Playfair Display", serif;
+            font-size: 30px;
+            line-height: 1.15;
+        }
+
+        .brand span {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 1px solid transparent;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .btn.primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 10px 18px rgba(14, 111, 96, 0.24);
+        }
+
+        .btn.primary:hover {
+            background: var(--primary-2);
+            transform: translateY(-1px);
+        }
+
+        .btn.ghost {
+            color: var(--primary);
+            border-color: rgba(14, 111, 96, 0.35);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .btn.ghost:hover {
+            box-shadow: 0 10px 16px rgba(14, 111, 96, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .layout {
+            display: grid;
+            gap: 14px;
+            grid-template-columns: minmax(320px, 1fr) minmax(0, 1.6fr);
+            margin-top: 14px;
+            align-items: start;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-soft);
+            padding: 16px;
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+            animation: riseIn 0.42s ease-out both;
+            animation-delay: var(--enter-delay, 0s);
+        }
+        .stack .card:nth-child(1) { --enter-delay: 0.07s; }
+        .stack .card:nth-child(2) { --enter-delay: 0.12s; }
+        .card:hover { transform: translateY(-2px); }
+
+        .section-title {
+            margin: 0 0 12px;
+            font-size: 22px;
+            font-family: "Playfair Display", serif;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+        }
+
+        .meta-row {
+            background: rgba(14, 111, 96, 0.06);
+            border-radius: 12px;
+            padding: 10px 12px;
+            font-size: 14px;
+        }
+
+        .meta-row strong {
+            color: #26423d;
+        }
+
+        .service-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin: 10px 0 4px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(14, 111, 96, 0.1);
+            color: var(--primary);
+        }
+
+        .badge.warn {
+            background: rgba(176, 72, 72, 0.13);
+            color: #9d2c2c;
+        }
+
+        .stack {
+            display: grid;
+            gap: 12px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .field label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #26423d;
+        }
+
+        .form-control,
+        select,
+        input,
+        textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1px solid rgba(31, 42, 43, 0.2);
+            font-family: inherit;
+            font-size: 14px;
+            outline: none;
+            transition: border 0.2s ease, box-shadow 0.2s ease;
+            background: #fff;
+        }
+
+        .form-control:focus,
+        select:focus,
+        input:focus,
+        textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--ring);
+        }
+
+        .hint {
+            margin: 0;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .alert {
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 14px;
+            border: 1px solid rgba(180, 52, 52, 0.35);
+            background: rgba(248, 225, 225, 0.7);
+            color: #7f2f2f;
+        }
+
+        .alert ul {
+            margin: 8px 0 0 18px;
+            padding: 0;
+        }
+
+        .empty {
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px dashed rgba(31, 42, 43, 0.2);
+            padding: 14px;
+            border-radius: 12px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 2px;
+        }
+
+        .schedule-grid {
+            display: grid;
+            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        }
+
+        .schedule-item {
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            border-radius: 12px;
+            padding: 12px;
+            background: rgba(14, 111, 96, 0.04);
+        }
+
+        .schedule-item h4 {
+            margin: 0 0 8px;
+            font-size: 16px;
+        }
+
+        .schedule-row {
+            font-size: 13px;
+            color: var(--muted);
+            margin: 4px 0;
+        }
+
+        @keyframes riseIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 980px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .page {
+                padding: 14px 10px 28px;
+            }
+
+            .topbar {
+                padding: 14px;
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .brand h1 {
+                font-size: 26px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div class="brand">
+                <h1>Đặt lịch khám</h1>
+                <span>{{ benh_vien.ten }} - {{ benh_vien.phuong }}</span>
+            </div>
+            <a class="btn ghost" href="{% url 'hospital_detail' benh_vien.id %}">← Thông tin bệnh viện</a>
+        </header>
+
+        <section class="layout">
+            <aside class="stack">
+                <div class="card">
+                    <h2 class="section-title">Bệnh viện</h2>
+                    <div class="meta-grid">
+                        <div class="meta-row"><strong>Địa chỉ:</strong> {{ benh_vien.dia_chi }}</div>
+                        <div class="meta-row">
+                            <strong>Giờ hoạt động:</strong>
+                            {{ benh_vien.gio_mo|time:"H\hi" }} - {{ benh_vien.gio_dong|time:"H\hi" }}
+                        </div>
+                    </div>
+                    <div class="service-row">
+                        <span class="badge {% if not benh_vien.co_bhyt %}warn{% endif %}">{% if benh_vien.co_bhyt %}Có BHYT{% else %}Không BHYT{% endif %}</span>
+                        <span class="badge {% if not benh_vien.cap_cuu_24h %}warn{% endif %}">{% if benh_vien.cap_cuu_24h %}C&#7845;p c&#7913;u 24/7{% else %}Kh&#244;ng c&#7845;p c&#7913;u 24/7{% endif %}</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2 class="section-title">Bệnh nhân</h2>
+                    <div class="meta-grid">
+                        <div class="meta-row"><strong>Họ tên:</strong> {{ benh_nhan.ho_ten }}</div>
+                        <div class="meta-row"><strong>Số điện thoại:</strong> {{ benh_nhan.so_dien_thoai }}</div>
+                        <div class="meta-row"><strong>Ngày sinh:</strong> {{ benh_nhan.ngay_sinh|date:"d/m/Y" }}</div>
+                    </div>
+                </div>
+            </aside>
+
+            <div class="stack">
+                <div class="card">
+                    <h2 class="section-title">Đặt lịch</h2>
+
+                    {% if messages %}
+                        <div class="stack" style="margin-bottom:12px;">
+                            {% for message in messages %}
+                                <div class="alert">{{ message }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% if form.errors %}
+                        <div class="alert" style="margin-bottom:12px;">
+                            Vui lòng kiểm tra lại thông tin:
+                            <ul>
+                                {% for field in form %}
+                                    {% for error in field.errors %}
+                                        <li>{{ field.label }}: {{ error }}</li>
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for error in form.non_field_errors %}
+                                    <li>{{ error }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    {% endif %}
+
+                    <form method="get" class="field" style="margin-bottom:12px;">
+                        <label for="khoa-select">Chọn khoa</label>
+                        <select id="khoa-select" name="khoa" onchange="this.form.submit()">
+                            <option value="">-- Chọn khoa --</option>
+                            {% for k in khoas %}
+                                <option value="{{ k.id }}" {% if k.id|stringformat:"s" == khoa_id %}selected{% endif %}>{{ k.ten }}</option>
+                            {% endfor %}
+                        </select>
+                    </form>
+
+                    {% if bac_sis %}
+                        <form method="post">
+                            {% csrf_token %}
+                            <input type="hidden" name="khoa" value="{{ khoa_id }}">
+
+                            <div class="field">
+                                <label>Bác sĩ</label>
+                                {{ form.bac_si }}
+                            </div>
+
+                            <div class="field">
+                                <label>Ngày khám</label>
+                                {{ form.ngay_kham }}
+                                <p class="hint">Chọn ngày từ hôm nay trở đi.</p>
+                            </div>
+
+                            <div class="field">
+                                <label>Giờ khám</label>
+                                {{ form.gio_kham }}
+                                <p class="hint">Chỉ nhận mốc 30 phút: 00 hoặc 30.</p>
+                            </div>
+
+                            <div class="field">
+                                <label>Ghi chú</label>
+                                {{ form.ghi_chu }}
+                            </div>
+
+                            <div class="actions">
+                                <button class="btn primary" type="submit">Xác nhận đặt lịch</button>
+                                <a class="btn ghost" href="{% url 'upcoming_appointments' %}">Xem lịch đã đặt</a>
+                            </div>
+                        </form>
+                    {% else %}
+                        <div class="empty">Vui lòng chọn khoa để hiển thị danh sách bác sĩ và tạo lịch khám.</div>
+                    {% endif %}
+                </div>
+
+                <div class="card">
+                    <h2 class="section-title">Lịch làm việc bác sĩ</h2>
+                    {% if bac_si_schedules %}
+                        <div class="schedule-grid">
+                            {% for item in bac_si_schedules %}
+                                <div class="schedule-item">
+                                    <h4>{{ item.bac_si.ho_ten }}</h4>
+                                    {% if item.gio_lam_viecs %}
+                                        {% for glv in item.gio_lam_viecs %}
+                                            <div class="schedule-row">
+                                                {{ glv.get_thu_display }}:
+                                                {% if glv.nghi %}
+                                                    Nghỉ
+                                                {% else %}
+                                                    {{ glv.gio_bat_dau|time:"H\hi" }} - {{ glv.gio_ket_thuc|time:"H\hi" }}
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="schedule-row">Chưa có lịch làm việc.</div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty">Chọn khoa để xem lịch làm việc của bác sĩ.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </section>
+    </div>
+    <script>
+        (function () {
+            const dateInput = document.querySelector('input[name="ngay_kham"]');
+            if (!dateInput) return;
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const mm = String(now.getMonth() + 1).padStart(2, "0");
+            const dd = String(now.getDate()).padStart(2, "0");
+            dateInput.min = `${yyyy}-${mm}-${dd}`;
+        })();
+    </script>
+</body>
+</html>
+
+
+

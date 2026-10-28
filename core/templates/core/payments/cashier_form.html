@@ -1,0 +1,10 @@
+{% extends 'core/payments/base.html' %}
+{% block title %}Phân công thu ngân{% endblock %}
+{% block content %}
+<section>
+    <a href="{% url 'cashier_list' %}">← Danh sách thu ngân</a>
+    <h1>{% if profile %}Sửa thu ngân{% else %}Tạo tài khoản thu ngân{% endif %}</h1>
+    <p>Tài khoản sử dụng màn hình đăng nhập hiện tại. Không được cấp quyền Admin hoặc bác sĩ.</p>
+    <form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Lưu thu ngân</button></form>
+</section>
+{% endblock %}

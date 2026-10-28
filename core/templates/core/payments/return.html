@@ -1,0 +1,22 @@
+{% extends 'core/payments/base.html' %}
+{% block content %}
+<section>
+    <h1>Kết quả thanh toán thử nghiệm</h1>
+    {% if error %}<p class="notice">{{ error }}</p>{% else %}
+        <p>Mã tham chiếu: <code>{{ attempt.ma_tham_chieu }}</code></p>
+        {% if attempt.hoa_don.can_doi_soat %}
+            <p class="notice">Kết quả giao dịch cần đối soát với VNPAY. Đã khóa lần thu mới; vui lòng nhờ nhân viên kiểm tra.</p>
+        {% elif attempt.trang_thai == 'success' %}
+            <p class="notice success">Thanh toán thành công. Hệ thống đã nhận IPN hợp lệ và ghi nhận hóa đơn đã thanh toán.</p>
+        {% elif attempt.hoa_don.trang_thai == 'paid' %}
+            <p class="notice success">Lần VNPAY này: {{ attempt.get_trang_thai_display }}. Hóa đơn đã hoàn tất qua lần thanh toán khác tại quầy. Không thu thêm tiền.</p>
+        {% elif attempt.trang_thai == 'pending' %}
+            <p class="notice">Đang xử lý / chờ xác nhận IPN. Kết quả trên trình duyệt chưa xác nhận hóa đơn đã thanh toán. Không thực hiện lần thu mới.</p>
+        {% else %}
+            <p class="notice">{{ attempt.get_trang_thai_display }}. Hóa đơn chưa thanh toán. Nhân viên có thể thực hiện lại tại quầy.</p>
+        {% endif %}
+        <p><a href="">Tải lại trạng thái</a></p>
+        {% if can_collect %}<a class="btn" href="{% url 'payment_detail' attempt.hoa_don.lich_kham_id %}">Về hóa đơn tại quầy</a>{% else %}<p>Vui lòng nhờ nhân viên tại quầy kiểm tra kết quả.</p>{% endif %}
+    {% endif %}
+</section>
+{% endblock %}

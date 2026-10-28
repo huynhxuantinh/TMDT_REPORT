@@ -1,0 +1,1069 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ bv.ten }}</title>
+    <style>
+        @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap");
+
+        :root {
+            --bg-1: #f5f7f4;
+            --bg-2: #edf3ef;
+            --ink: #1f2c2a;
+            --muted: #586664;
+            --primary: #0e6f60;
+            --primary-2: #13806f;
+            --card: #ffffff;
+            --ring: rgba(14, 111, 96, 0.2);
+            --border: rgba(18, 46, 42, 0.12);
+            --shadow-soft: 0 10px 26px rgba(16, 35, 31, 0.08);
+            --shadow-card: 0 14px 30px rgba(16, 35, 31, 0.1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Work Sans", "Segoe UI", sans-serif;
+            color: var(--ink);
+            background:
+                radial-gradient(1200px 600px at 95% -10%, rgba(19, 128, 111, 0.13), transparent 58%),
+                radial-gradient(900px 500px at -10% 15%, rgba(110, 157, 143, 0.13), transparent 58%),
+                linear-gradient(120deg, var(--bg-1), var(--bg-2));
+            min-height: 100vh;
+        }
+
+        .page {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 24px 20px 44px;
+        }
+
+        .topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 18px 20px;
+            background: rgba(255, 255, 255, 0.82);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            box-shadow: var(--shadow-soft);
+            backdrop-filter: blur(10px);
+            animation: riseIn 0.36s ease-out both;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-family: "Playfair Display", serif;
+            font-size: 30px;
+            line-height: 1.15;
+        }
+
+        .brand span {
+            display: block;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .top-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 16px;
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 14px;
+            border: 1px solid transparent;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .btn.primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 10px 18px rgba(14, 111, 96, 0.24);
+        }
+
+        .btn.primary:hover {
+            background: var(--primary-2);
+            transform: translateY(-1px);
+        }
+
+        .btn.ghost {
+            color: var(--primary);
+            border-color: rgba(14, 111, 96, 0.35);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .btn.ghost:hover {
+            box-shadow: 0 10px 16px rgba(14, 111, 96, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .hero {
+            margin-top: 14px;
+            display: grid;
+            gap: 14px;
+            grid-template-columns: minmax(340px, 0.9fr) minmax(0, 1.7fr);
+            align-items: start;
+        }
+
+        .gallery-card {
+            margin-top: 14px;
+            padding: 14px;
+            position: relative;
+        }
+
+        .gallery-main {
+            width: 100%;
+            height: clamp(170px, 24vw, 320px);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #f0f4f2;
+            object-fit: cover;
+            display: block;
+        }
+
+        .gallery-nav {
+            position: absolute;
+            top: calc(50% - 24px);
+            transform: translateY(-50%);
+            width: 34px;
+            height: 34px;
+            border: 1px solid rgba(14, 111, 96, 0.32);
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.95);
+            color: var(--primary);
+            font-size: 18px;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 2;
+        }
+
+        .gallery-nav.prev { left: 24px; }
+        .gallery-nav.next { right: 24px; }
+
+        .gallery-thumbs {
+            margin-top: 10px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+            gap: 8px;
+        }
+
+        .gallery-thumb {
+            border: 2px solid transparent;
+            border-radius: 10px;
+            padding: 0;
+            background: #fff;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .gallery-thumb.active {
+            border-color: var(--primary);
+            box-shadow: 0 8px 16px rgba(14, 111, 96, 0.18);
+        }
+
+        .gallery-thumb img {
+            width: 100%;
+            height: 56px;
+            object-fit: cover;
+            display: block;
+        }
+
+        .info-col {
+            display: grid;
+            gap: 12px;
+            align-content: start;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: var(--shadow-soft);
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+            animation: riseIn 0.42s ease-out both;
+            animation-delay: var(--enter-delay, 0s);
+        }
+        .hero .card:nth-child(1) { --enter-delay: 0.06s; }
+        .hero .card:nth-child(2) { --enter-delay: 0.1s; }
+        .content-grid .card:nth-child(1) { --enter-delay: 0.14s; }
+        .content-grid .card:nth-child(2) { --enter-delay: 0.18s; }
+        .content-grid .card:nth-child(3) { --enter-delay: 0.22s; }
+        .card:hover { transform: translateY(-2px); box-shadow: var(--shadow-card); }
+
+        .info-card {
+            padding: 16px;
+        }
+
+        .service-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(14, 111, 96, 0.1);
+            color: var(--primary);
+        }
+
+        .status.warn {
+            background: rgba(176, 72, 72, 0.13);
+            color: #9d2c2c;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .meta {
+            background: rgba(14, 111, 96, 0.06);
+            border-radius: 12px;
+            padding: 10px 12px;
+            min-height: 64px;
+        }
+
+        .meta strong {
+            display: block;
+            font-size: 12px;
+            color: var(--muted);
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+
+        .meta span {
+            font-size: 15px;
+            line-height: 1.35;
+            word-break: break-word;
+        }
+
+        .map-col { min-width: 0; }
+
+        .map-card {
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 500px;
+        }
+
+        .map-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            padding: 0;
+        }
+
+        .map-head h2 {
+            margin: 0;
+            font-size: 18px;
+            font-family: "Playfair Display", serif;
+        }
+
+        .map-head span {
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        #map {
+            width: 100%;
+            min-height: 450px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .detail-locate-control {
+            width: 34px;
+            height: 34px;
+            border: 1px solid rgba(14, 111, 96, 0.32);
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: 0 8px 16px rgba(18, 46, 42, 0.2);
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.16s ease, box-shadow 0.16s ease;
+        }
+        .detail-locate-control:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 18px rgba(18, 46, 42, 0.24);
+        }
+        .detail-locate-control svg {
+            width: 18px;
+            height: 18px;
+            fill: var(--primary);
+        }
+        .detail-locate-control.locate-active svg { fill: #c62828; }
+        .detail-user-marker-wrap {
+            background: transparent;
+            border: 0;
+        }
+        .detail-user-marker {
+            width: 17px;
+            height: 17px;
+            border-radius: 50%;
+            border: 1px solid #fff;
+            background: #2a93ee;
+            animation: detailLocatePulse 2s infinite;
+        }
+        @keyframes detailLocatePulse {
+            0% { box-shadow: 0 0 0 0 rgba(42, 147, 238, 0.65); }
+            70% { box-shadow: 0 0 0 12px rgba(42, 147, 238, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(42, 147, 238, 0); }
+        }
+
+        .route-panel {
+            padding: 14px;
+        }
+
+        .route-panel h3 {
+            margin: 0 0 10px;
+            font-size: 17px;
+            font-family: "Playfair Display", serif;
+        }
+
+        .route-tools {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .route-field {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 13px;
+        }
+
+        .route-field label {
+            color: #23403b;
+            font-weight: 600;
+        }
+
+        .route-field input {
+            padding: 9px 11px;
+            border-radius: 10px;
+            border: 1px solid rgba(31, 42, 43, 0.2);
+            font-family: inherit;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        .route-field input:focus {
+            outline: 2px solid var(--ring);
+            border-color: rgba(14, 111, 96, 0.4);
+        }
+
+        .route-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .route-status {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .content-grid {
+            margin-top: 14px;
+            display: grid;
+            gap: 14px;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        }
+
+        .wide {
+            grid-column: 1 / -1;
+        }
+
+        .section-card {
+            padding: 16px;
+        }
+
+        .section-title {
+            margin: 0 0 12px;
+            font-size: 22px;
+            font-family: "Playfair Display", serif;
+        }
+
+        .hours {
+            display: grid;
+            gap: 9px;
+        }
+
+        .hours-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            font-size: 14px;
+        }
+
+        .hours-item span {
+            color: var(--muted);
+            text-align: right;
+        }
+
+        .list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: grid;
+            gap: 9px;
+        }
+
+        .list-item {
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(31, 42, 43, 0.08);
+            background: rgba(14, 111, 96, 0.04);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: rgba(14, 111, 96, 0.1);
+            color: var(--primary);
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        @keyframes riseIn {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 1100px) {
+            .hero {
+                grid-template-columns: 1fr;
+            }
+
+            .map-card {
+                min-height: 460px;
+            }
+
+            #map {
+                min-height: 410px;
+            }
+        }
+
+        @media (max-width: 760px) {
+            .page {
+                padding: 14px 10px 28px;
+            }
+
+            .topbar {
+                padding: 14px;
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .top-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .top-actions .btn {
+                width: 100%;
+            }
+
+            .brand h1 {
+                font-size: 26px;
+            }
+
+            .meta-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .route-tools {
+                grid-template-columns: 1fr;
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .map-card {
+                min-height: 380px;
+            }
+
+            #map {
+                min-height: 320px;
+            }
+
+            .gallery-nav.prev { left: 10px; }
+            .gallery-nav.next { right: 10px; }
+
+            .hours-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .hours-item span {
+                text-align: left;
+            }
+
+            .route-actions .btn {
+                width: 100%;
+            }
+        }
+    </style>
+    <link
+        rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+    />
+</head>
+<body>
+    <div class="page">
+        <header class="topbar">
+            <div class="brand">
+                <h1>{{ bv.ten }}</h1>
+                <span>Th&#244;ng tin chi ti&#7871;t b&#7879;nh vi&#7879;n</span>
+            </div>
+            <div class="top-actions">
+                <a class="btn ghost" href="{% url 'home' %}">&#8592; Trang ch&#7911;</a>
+                <a class="btn ghost" href="{% url 'gioi_thieu' %}">Gi&#7899;i thi&#7879;u</a>
+                <a class="btn primary" href="{% url 'dat_lich' bv.id %}">&#272;&#7863;t l&#7883;ch kh&#225;m</a>
+            </div>
+        </header>        <section class="hero">
+            <div class="info-col">
+                <aside class="card info-card">
+                    <div class="service-row">
+                        <span class="status">{% if bv.co_bhyt %}C&#243; BHYT{% else %}Kh&#244;ng BHYT{% endif %}</span>
+                        <span class="status {% if not bv.cap_cuu_24h %}warn{% endif %}">{% if bv.cap_cuu_24h %}C&#7845;p c&#7913;u 24/7{% else %}Kh&#244;ng c&#7845;p c&#7913;u 24/7{% endif %}</span>
+                    </div>
+                    <div class="meta-grid">
+                        <div class="meta">
+                            <strong>Ph&#432;&#7901;ng</strong>
+                            <span>{{ bv.phuong }}</span>
+                        </div>
+                        <div class="meta">
+                            <strong>Lo&#7841;i h&#236;nh</strong>
+                            <span>{{ bv.get_loai_hinh_display }}</span>
+                        </div>
+                        <div class="meta" style="grid-column: 1 / -1;">
+                            <strong>&#272;&#7883;a ch&#7881;</strong>
+                            <span>{{ bv.dia_chi }}</span>
+                        </div>
+                        <div class="meta">
+                            <strong>Gi&#7901; m&#7903; c&#7917;a</strong>
+                            <span>
+                                {{ bv.gio_mo|time:"H\hi" }}
+                                ({% with h=bv.gio_mo|time:"H" %}{% if h < "12" %}s&#225;ng{% elif h < "18" %}chi&#7873;u{% else %}t&#7889;i{% endif %}{% endwith %})
+                            </span>
+                        </div>
+                        <div class="meta">
+                            <strong>Gi&#7901; &#273;&#243;ng c&#7917;a</strong>
+                            <span>
+                                {{ bv.gio_dong|time:"H\hi" }}
+                                ({% with h=bv.gio_dong|time:"H" %}{% if h < "12" %}s&#225;ng{% elif h < "18" %}chi&#7873;u{% else %}t&#7889;i{% endif %}{% endwith %})
+                            </span>
+                        </div>
+                    </div>
+                </aside>
+
+                <div class="card route-panel">
+                    <h3>Ch&#7881; &#273;&#432;&#7901;ng</h3>
+                    <div class="route-tools">
+                        <div class="route-field">
+                            <label for="route-lat">V&#297; &#273;&#7897; xu&#7845;t ph&#225;t</label>
+                            <input id="route-lat" type="number" min="-90" max="90" step="any" placeholder="10.77">
+                        </div>
+                        <div class="route-field">
+                            <label for="route-lon">Kinh &#273;&#7897; xu&#7845;t ph&#225;t</label>
+                            <input id="route-lon" type="number" min="-180" max="180" step="any" placeholder="106.70">
+                        </div>
+                    </div>
+                    <div class="route-actions">
+                        <button id="route-locate" type="button" class="btn ghost">L&#7845;y v&#7883; tr&#237;</button>
+                        <button id="route-draw" type="button" class="btn primary" {% if not map_lat or not map_lon %}disabled{% endif %}>Ch&#7881; &#273;&#432;&#7901;ng &#273;&#7871;n b&#7879;nh vi&#7879;n</button>
+                    </div>
+                    <div id="route-status" class="route-status">Nh&#7853;p v&#7883; tr&#237; xu&#7845;t ph&#225;t ho&#7863;c b&#7845;m L&#7845;y v&#7883; tr&#237; &#273;&#7875; v&#7869; &#273;&#432;&#7901;ng &#273;i.</div>
+                </div>
+            </div>
+
+            <div class="map-col">
+                <div class="card map-card">
+                    <div class="map-head">
+                        <h2>B&#7843;n &#273;&#7891; v&#7883; tr&#237;</h2>
+                        <span>Chi ti&#7871;t khu v&#7921;c b&#7879;nh vi&#7879;n</span>
+                    </div>
+                    <div id="map"></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="content-grid">
+            <div class="card section-card">
+                <h2 class="section-title">Gi&#7901; l&#224;m vi&#7879;c</h2>
+                <div class="hours">
+                    {% for glv in gio_lam_viec %}
+                        <div class="hours-item">
+                            <div>{{ glv.get_thu_display }}</div>
+                            {% if glv.nghi %}
+                                <span>Ngh&#7881;</span>
+                            {% else %}
+                                <span>
+                                    {{ glv.gio_mo|time:"H\hi" }} - {{ glv.gio_dong|time:"H\hi" }}
+                                    ({% with h=glv.gio_mo|time:"H" %}{% if h < "12" %}s&#225;ng{% elif h < "18" %}chi&#7873;u{% else %}t&#7889;i{% endif %}{% endwith %})
+                                </span>
+                            {% endif %}
+                        </div>
+                    {% empty %}
+                        <div class="hours-item">
+                            <div>Ch&#432;a c&#243; l&#7883;ch l&#224;m vi&#7879;c</div>
+                            <span>&#8212;</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card section-card">
+                <h2 class="section-title">H&#236;nh &#7843;nh</h2>
+                {% if primary_image %}
+                    <div class="gallery-card">
+                        <img
+                            id="gallery-main-image"
+                            class="gallery-main"
+                            src="{{ primary_image.hinh_anh.url }}"
+                            alt="H&#236;nh &#7843;nh b&#7879;nh vi&#7879;n {{ bv.ten }}"
+                        >
+                        {% if hospital_images|length > 1 %}
+                            <button type="button" id="gallery-prev" class="gallery-nav prev" aria-label="&#7842;nh tr&#432;&#7899;c">&#8249;</button>
+                            <button type="button" id="gallery-next" class="gallery-nav next" aria-label="&#7842;nh ti&#7871;p theo">&#8250;</button>
+                            <div class="gallery-thumbs">
+                                {% for image in hospital_images %}
+                                    <button
+                                        type="button"
+                                        class="gallery-thumb {% if image.id == primary_image.id %}active{% endif %}"
+                                        data-image-url="{{ image.hinh_anh.url }}"
+                                        data-index="{{ forloop.counter0 }}"
+                                        aria-label="Xem &#7843;nh {{ forloop.counter }}"
+                                    >
+                                        <img src="{{ image.hinh_anh.url }}" alt="&#7842;nh {{ forloop.counter }} c&#7911;a {{ bv.ten }}">
+                                    </button>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% else %}
+                    <div class="hours-item" style="min-height: 280px; align-items: center; justify-content: center;">
+                        Ch&#432;a c&#243; &#7843;nh b&#7879;nh vi&#7879;n
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="card section-card">
+                <h2 class="section-title">Khoa</h2>
+                <ul class="list">
+                    {% for k in khoas %}
+                        <li class="list-item">{{ k.ten }}</li>
+                    {% empty %}
+                        <li class="list-item">Ch&#432;a c&#243; khoa</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="card section-card">
+                <h2 class="section-title">B&#225;c s&#297;</h2>
+                <ul class="list">
+                    {% for bs in bac_sis %}
+                        <li class="list-item">
+                            <div><strong>{{ bs.ho_ten }}</strong></div>
+                            <div class="badge">{{ bs.chuyen_khoa }}</div>
+                        </li>
+                    {% empty %}
+                        <li class="list-item">Ch&#432;a c&#243; b&#225;c s&#297;</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </section>
+    </div>
+
+    <script
+        src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+    ></script>
+    <script>
+        const map = L.map("map").setView([10.77, 106.7], 13);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            referrerPolicy: "strict-origin-when-cross-origin",
+            attribution: "&copy; OpenStreetMap"
+        }).addTo(map);
+
+        const hospitalName = "{{ bv.ten|escapejs }}";
+        const destLat = Number({{ map_lat|default:"null" }});
+        const destLon = Number({{ map_lon|default:"null" }});
+
+        let routeLayer = null;
+        let userMarker = null;
+        let userAccuracyCircle = null;
+        let locateControlButton = null;
+        let currentUserCoords = null;
+
+        const routeStatusEl = document.getElementById("route-status");
+        const routeLatInput = document.getElementById("route-lat");
+        const routeLonInput = document.getElementById("route-lon");
+        const routeLocateBtn = document.getElementById("route-locate");
+        const routeDrawBtn = document.getElementById("route-draw");
+
+        function isValidLatLon(lat, lon) {
+            return Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180;
+        }
+
+        function setRouteStatus(text) {
+            if (routeStatusEl) {
+                routeStatusEl.textContent = text;
+            }
+        }
+
+        if (Number.isFinite(destLat) && Number.isFinite(destLon)) {
+            const marker = L.marker([destLat, destLon]).addTo(map);
+            marker.bindPopup(hospitalName).openPopup();
+            map.setView([destLat, destLon], 15);
+        } else {
+            setRouteStatus("B\u1ec7nh vi\u1ec7n ch\u01b0a c\u00f3 t\u1ecda \u0111\u1ed9 h\u1ee3p l\u1ec7 \u0111\u1ec3 v\u1ebd tuy\u1ebfn.");
+        }
+
+        function setUserLocation(lat, lon, focusMap = false) {
+            if (!isValidLatLon(lat, lon)) {
+                return;
+            }
+            currentUserCoords = { lat, lon };
+            if (userMarker) {
+                userMarker.setLatLng([lat, lon]);
+            } else {
+                userMarker = L.circleMarker([lat, lon], {
+                    radius: 6,
+                    color: "#0b6b5b",
+                    fillColor: "#0b6b5b",
+                    fillOpacity: 0.8
+                }).addTo(map);
+                userMarker.bindPopup("V\u1ecb tr\u00ed c\u1ee7a b\u1ea1n");
+            }
+            if (focusMap) {
+                map.setView([lat, lon], 13);
+            }
+        }
+
+        function setLocateButtonActive(active) {
+            if (!locateControlButton) {
+                return;
+            }
+            locateControlButton.classList.toggle("locate-active", !!active);
+            locateControlButton.setAttribute("aria-pressed", active ? "true" : "false");
+        }
+
+        function clearUserLocation() {
+            if (userMarker) {
+                map.removeLayer(userMarker);
+                userMarker = null;
+            }
+            if (userAccuracyCircle) {
+                map.removeLayer(userAccuracyCircle);
+                userAccuracyCircle = null;
+            }
+            currentUserCoords = null;
+            if (routeLatInput) {
+                routeLatInput.value = "";
+            }
+            if (routeLonInput) {
+                routeLonInput.value = "";
+            }
+            setLocateButtonActive(false);
+        }
+
+        setUserLocation = function (lat, lon, focusMap = false, accuracy = null) {
+            if (!isValidLatLon(lat, lon)) {
+                return;
+            }
+            currentUserCoords = { lat, lon };
+            if (userMarker) {
+                userMarker.setLatLng([lat, lon]);
+            } else {
+                userMarker = L.marker([lat, lon], {
+                    icon: L.divIcon({
+                        className: "detail-user-marker-wrap",
+                        html: '<div class="detail-user-marker"></div>',
+                        iconSize: [17, 17],
+                        iconAnchor: [8.5, 8.5],
+                        popupAnchor: [0, -10],
+                    }),
+                }).addTo(map);
+                userMarker.bindPopup("V\u1ecb tr\u00ed c\u1ee7a b\u1ea1n");
+            }
+
+            if (Number.isFinite(accuracy) && accuracy > 0) {
+                const radius = Math.max(accuracy / 2, 20);
+                if (userAccuracyCircle) {
+                    userAccuracyCircle.setLatLng([lat, lon]);
+                    userAccuracyCircle.setRadius(radius);
+                } else {
+                    userAccuracyCircle = L.circle([lat, lon], {
+                        radius: radius,
+                        weight: 2,
+                        stroke: false,
+                        fillColor: "#2a93ee",
+                        fillOpacity: 0.15,
+                    }).addTo(map);
+                }
+            }
+
+            if (focusMap) {
+                map.setView([lat, lon], 14);
+            }
+            setLocateButtonActive(true);
+        };
+
+        async function locateUser(focusMap = true) {
+            if (!navigator.geolocation) {
+                alert("Tr\u00ecnh duy\u1ec7t kh\u00f4ng h\u1ed7 tr\u1ee3 \u0111\u1ecbnh v\u1ecb.");
+                return null;
+            }
+            setLocateButtonActive(true);
+            return new Promise((resolve) => {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    const lat = Number(pos.coords.latitude.toFixed(6));
+                    const lon = Number(pos.coords.longitude.toFixed(6));
+                    const accuracy = Number(pos.coords.accuracy);
+                    if (!isValidLatLon(lat, lon)) {
+                        setLocateButtonActive(false);
+                        alert("Tá»a Ä‘á»™ vá»‹ trÃ­ khÃ´ng há»£p lá»‡.");
+                        resolve(null);
+                        return;
+                    }
+                    if (routeLatInput) {
+                        routeLatInput.value = lat;
+                    }
+                    if (routeLonInput) {
+                        routeLonInput.value = lon;
+                    }
+                    setUserLocation(lat, lon, focusMap, accuracy);
+                    setRouteStatus("\u0110\u00e3 c\u1eadp nh\u1eadt v\u1ecb tr\u00ed c\u1ee7a b\u1ea1n.");
+                    resolve({ lat, lon });
+                }, () => {
+                    setLocateButtonActive(false);
+                    alert("Kh\u00f4ng th\u1ec3 l\u1ea5y v\u1ecb tr\u00ed. Vui l\u00f2ng cho ph\u00e9p tr\u00ecnh duy\u1ec7t truy c\u1eadp v\u1ecb tr\u00ed.");
+                    resolve(null);
+                }, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0,
+                });
+            });
+        }
+
+        function clearRouteLayer() {
+            if (routeLayer) {
+                map.removeLayer(routeLayer);
+                routeLayer = null;
+            }
+        }
+
+        function getOriginFromInputs() {
+            const lat = parseFloat(routeLatInput?.value || "");
+            const lon = parseFloat(routeLonInput?.value || "");
+            if (isValidLatLon(lat, lon)) {
+                setUserLocation(lat, lon, false);
+                return { lat, lon };
+            }
+            if ((routeLatInput?.value || "").trim() || (routeLonInput?.value || "").trim()) {
+                setRouteStatus("Tá»a Ä‘á»™ khÃ´ng há»£p lá»‡. VÄ© Ä‘á»™ trong [-90, 90], kinh Ä‘á»™ trong [-180, 180].");
+            }
+            return currentUserCoords;
+        }
+
+        async function ensureOriginCoords() {
+            const byInput = getOriginFromInputs();
+            if (byInput) {
+                return byInput;
+            }
+            return await locateUser(true);
+        }
+
+        const DetailLocateControl = L.Control.extend({
+            options: { position: "topleft" },
+            onAdd: function () {
+                const button = L.DomUtil.create("button", "detail-locate-control leaflet-bar");
+                button.type = "button";
+                button.title = "\u0110\u1ecbnh v\u1ecb v\u1ecb tr\u00ed c\u1ee7a b\u1ea1n";
+                button.setAttribute("aria-label", "\u0110\u1ecbnh v\u1ecb v\u1ecb tr\u00ed c\u1ee7a b\u1ea1n");
+                button.setAttribute("aria-pressed", "false");
+                button.innerHTML = '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M0 0h24v24H0z" fill="none"/><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>';
+                L.DomEvent.disableClickPropagation(button);
+                L.DomEvent.on(button, "click", async (event) => {
+                    L.DomEvent.stop(event);
+                    const active = button.classList.contains("locate-active");
+                    if (active) {
+                        clearUserLocation();
+                        setRouteStatus("\u0110\u00e3 x\u00f3a v\u1ecb tr\u00ed hi\u1ec7n t\u1ea1i.");
+                        return;
+                    }
+                    await locateUser(true);
+                });
+                locateControlButton = button;
+                return button;
+            }
+        });
+        map.addControl(new DetailLocateControl());
+
+        async function drawRouteToHospital() {
+            if (!Number.isFinite(destLat) || !Number.isFinite(destLon)) {
+                alert("B\u1ec7nh vi\u1ec7n ch\u01b0a c\u00f3 t\u1ecda \u0111\u1ed9 h\u1ee3p l\u1ec7.");
+                return;
+            }
+
+            const origin = await ensureOriginCoords();
+            if (!origin) {
+                alert("Vui l\u00f2ng b\u1eadt v\u1ecb tr\u00ed ho\u1eb7c nh\u1eadp v\u0129 \u0111\u1ed9/kinh \u0111\u1ed9 xu\u1ea5t ph\u00e1t.");
+                return;
+            }
+
+            clearRouteLayer();
+            setRouteStatus(`\u0110ang t\u00ecm \u0111\u01b0\u1eddng \u0111\u1ebfn ${hospitalName}...`);
+
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${origin.lon},${origin.lat};${destLon},${destLat}?overview=full&geometries=geojson`;
+            try {
+                const response = await fetch(osrmUrl);
+                if (!response.ok) {
+                    throw new Error("OSRM request failed");
+                }
+                const data = await response.json();
+                const route = data?.routes?.[0];
+                if (!route?.geometry?.coordinates?.length) {
+                    throw new Error("No route geometry");
+                }
+
+                const latLngs = route.geometry.coordinates.map((p) => [p[1], p[0]]);
+                routeLayer = L.polyline(latLngs, {
+                    color: "#0f8a74",
+                    weight: 5,
+                    opacity: 0.85
+                }).addTo(map);
+                map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+
+                const km = (route.distance / 1000).toFixed(1);
+                const mins = Math.round(route.duration / 60);
+                setRouteStatus(`Tuy\u1ebfn \u0111\u1ebfn b\u1ec7nh vi\u1ec7n: ${km} km, ~${mins} ph\u00fat.`);
+            } catch (err) {
+                routeLayer = L.polyline(
+                    [[origin.lat, origin.lon], [destLat, destLon]],
+                    {
+                        color: "#0f8a74",
+                        weight: 4,
+                        opacity: 0.75,
+                        dashArray: "8 8"
+                    }
+                ).addTo(map);
+                map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+                setRouteStatus("Kh\u00f4ng l\u1ea5y \u0111\u01b0\u1ee3c tuy\u1ebfn chi ti\u1ebft. \u0110\u00e3 v\u1ebd \u0111\u01b0\u1eddng th\u1eb3ng t\u1ea1m th\u1eddi.");
+            }
+        }
+
+        const galleryMainImage = document.getElementById("gallery-main-image");
+        const galleryThumbButtons = Array.from(document.querySelectorAll(".gallery-thumb"));
+        const galleryPrevButton = document.getElementById("gallery-prev");
+        const galleryNextButton = document.getElementById("gallery-next");
+        const galleryImages = galleryThumbButtons.map((button) => button.getAttribute("data-image-url") || "");
+        let galleryIndex = Math.max(0, galleryThumbButtons.findIndex((button) => button.classList.contains("active")));
+
+        function renderGallery(index) {
+            if (!galleryMainImage || !galleryImages.length) {
+                return;
+            }
+            const normalized = (index + galleryImages.length) % galleryImages.length;
+            galleryIndex = normalized;
+            galleryMainImage.src = galleryImages[normalized];
+            galleryThumbButtons.forEach((button, idx) => {
+                if (idx === normalized) {
+                    button.classList.add("active");
+                } else {
+                    button.classList.remove("active");
+                }
+            });
+        }
+
+        galleryThumbButtons.forEach((button, idx) => {
+            button.addEventListener("click", () => {
+                renderGallery(idx);
+            });
+        });
+
+        galleryPrevButton?.addEventListener("click", () => {
+            renderGallery(galleryIndex - 1);
+        });
+
+        galleryNextButton?.addEventListener("click", () => {
+            renderGallery(galleryIndex + 1);
+        });
+
+        if (galleryImages.length) {
+            renderGallery(galleryIndex);
+        }
+
+        routeLocateBtn?.addEventListener("click", async () => {
+            await locateUser(true);
+        });
+
+        routeDrawBtn?.addEventListener("click", async () => {
+            await drawRouteToHospital();
+        });
+    </script>
+</body>
+</html>
+
+
+
+

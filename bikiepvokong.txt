@@ -1,0 +1,225 @@
+BAO CAO CHI TIET DE TAI
+Ten de tai: He thong tra cuu benh vien va dat lich kham (Django + PostgreSQL/PostGIS)
+Ngay cap nhat: 30/03/2026
+
+====================================================================
+1) GIOI THIEU NGAN GON VE DE TAI
+====================================================================
+De tai xay dung mot he thong web ho tro nguoi dung tra cuu benh vien tren ban do,
+tim benh vien gan vi tri hien tai, dat lich kham, theo doi lich kham va lich su kham.
+Ngoai ra, he thong co trang quan ly rieng de quan tri du lieu benh vien, khoa,
+bac si, lich kham va tai khoan.
+
+Diem nhan cua de tai:
+- Su dung Django de xay dung backend web.
+- Su dung PostgreSQL + PostGIS de xu ly du lieu khong gian (GIS).
+- Tich hop ban do web de tra cuu truc quan.
+
+====================================================================
+2) NGHIEP VU VA CHUC NANG CUA DE TAI
+====================================================================
+2.1 Nhom nguoi dung benh nhan/User
+- Tra cuu benh vien theo ten, phuong, loai hinh.
+- Loc theo BHYT, cap cuu, trang thai dang mo cua.
+- Lay vi tri hien tai va loc theo ban kinh.
+- Xem thong tin chi tiet benh vien.
+- Dat lich kham theo benh vien/khoa/bac si.
+- Xem lich kham sap toi, huy lich.
+- Xem lich su kham va phieu kham.
+- Gui lien he/gop y qua form.
+
+2.2 Nhom bac si
+- Xem danh sach lich kham theo ngay/trang thai.
+- Bat dau kham, cap nhat trang thai lich kham.
+- Tao/sua phieu kham cho benh nhan.
+- Xem thong bao lien quan lich kham.
+
+2.3 Nhom quan tri (Admin)
+- Dung trang quan tri custom tai duong dan /quan-tri/.
+- Quan ly danh muc benh vien, khoa, bac si, gio lam viec.
+- Quan ly lich kham, phieu kham, thong bao, log he thong.
+- Quan ly tai khoan va vai tro theo nghiep vu.
+
+====================================================================
+3) DEMO NGAN GON CAC CHUC NANG
+====================================================================
+Kich ban demo de trinh bay 8-12 phut:
+
+Buoc 1: Demo trang nguoi dung (Home + GIS)
+- Mo trang chu (/).
+- Tim benh vien bang o tim kiem.
+- Bat bo loc BHYT/cap cuu/phuong/loai hinh.
+- Bam nut dinh vi de lay vi tri hien tai.
+- Chon ban kinh va ap dung loc.
+- Mo popup marker benh vien tren ban do.
+
+Buoc 2: Demo chi tiet benh vien
+- Bam vao "Xem chi tiet".
+- Kiem tra map chi tiet va thao tac dinh vi.
+- Thu thao tac chi duong den benh vien.
+
+Buoc 3: Demo dat lich
+- Dang nhap user.
+- Dat lich kham.
+- Vao "Lich kham sap toi" de kiem tra lich vua tao.
+
+Buoc 4: Demo luong bac si
+- Dang nhap bac si.
+- Bat dau kham mot lich.
+- Tao phieu kham.
+- Kiem tra benh an/lich su duoc tao.
+
+Buoc 5: Demo quan tri
+- Vao /quan-tri/.
+- Mo module benh vien/tai khoan/lich kham de show quan ly du lieu.
+
+====================================================================
+4) DU LIEU THAY DOI TRONG DATABASE KHI DEMO
+====================================================================
+4.1 Khi dat lich kham
+- Bang LichKham: INSERT ban ghi moi.
+- Bang LogLichKham: them ban ghi log hanh dong tao moi.
+- Bang ThongBao: tao thong bao lien quan (neu co user nhan thong bao).
+
+4.2 Khi huy hoac doi trang thai lich kham
+- Bang LichKham: UPDATE cot trang_thai.
+- Bang LogLichKham: INSERT log doi trang thai.
+
+4.3 Khi bac si tao phieu kham
+- Bang PhieuKham: INSERT ban ghi phieu kham.
+- Bang LichSuKhamBenh: INSERT ban ghi lich su (signal tu dong).
+- Bang ThongBao: INSERT thong bao moi lien quan.
+
+4.4 Khi cap nhat du lieu trong quan tri
+- Cac bang nghiep vu duoc INSERT/UPDATE/DELETE tuy module.
+- Bang log he thong co the luu vet theo nghiep vu.
+
+====================================================================
+5) NOI VE MODEL VA DATABASE
+====================================================================
+5.1 Cac model chinh
+- BenhVien (co PointField vi_tri cho GIS)
+- GioLamViecBenhVien
+- Khoa
+- BacSi
+- GioLamViecBacSi
+- BenhNhan
+- LichKham
+- PhieuKham
+- LichSuKhamBenh
+- ThongBao
+- LogLichKham
+- LogHeThong
+
+5.2 Dac diem model
+- Co rang buoc du lieu (constraint, unique, check).
+- Co clean() de validate nghiep vu.
+- Co index de toi uu truy van.
+- Co signal de tu dong tao log/thong bao/lich su.
+
+5.3 Database
+- Database duy nhat su dung: PostgreSQL.
+- Phan GIS su dung PostGIS extension.
+- ORM su dung: Django ORM + GeoDjango ORM.
+
+====================================================================
+6) TOOL SU DUNG
+====================================================================
+Backend:
+- Python
+- Django
+- Django ORM / GeoDjango
+
+Database:
+- PostgreSQL
+- PostGIS
+
+Frontend/GIS:
+- Leaflet.js
+- OpenStreetMap tile
+- Browser Geolocation API
+- OSRM API (route)
+
+Ho tro khac:
+- Mailtrap SMTP (test gui mail lien he/gop y)
+- AOS + anime.js (animation nhe giao dien)
+
+====================================================================
+7) PHAN QUYEN ADMIN, USER; TRANG QUAN LY VA TRANG NGUOI DUNG
+====================================================================
+7.1 Vai tro
+- User (Nguoi dung): su dung trang nguoi dung de tra cuu/dat lich/quan ly ho so.
+- Bac si: thao tac tren trang bac si de kham va tao phieu.
+- Admin: thao tac tren trang quan tri custom de quan ly du lieu.
+
+7.2 Trang quan ly
+- Duong dan: /quan-tri/
+- Chuc nang: CRUD cac module nghiep vu.
+
+7.3 Trang nguoi dung
+- Duong dan: / va cac trang lien quan (chi tiet, dat lich, lich su, profile...)
+
+====================================================================
+8) MIGRATION DJANGO
+====================================================================
+Lenh migration chuan:
+
+1. Tao migration:
+   venv\Scripts\python.exe manage.py makemigrations
+
+2. Apply migration:
+   venv\Scripts\python.exe manage.py migrate
+
+3. Kiem tra he thong:
+   venv\Scripts\python.exe manage.py check
+
+====================================================================
+9) RANG BUOC THEO YEU CAU DE TAI
+====================================================================
+- KHONG dung database khac PostgreSQL.
+- KHONG dung Django Admin mac dinh cho quan tri nghiep vu.
+- He thong dung trang quan tri custom /quan-tri/.
+
+====================================================================
+10) KET LUAN NGAN GON
+====================================================================
+De tai da dap ung day du 3 trong tam:
+1) View Django de hien thi giao dien nghiep vu.
+2) ORM de thao tac du lieu va rang buoc nghiep vu.
+3) GIS web de tim benh vien theo vi tri/khoang cach tren ban do.
+
+Huong phat trien tiep theo co the gom:
+- Toi uu map marker clustering.
+- Toi uu hieu nang tile map.
+- Bo sung dashboard thong ke theo khu vuc.
+
+### 6.2. Nhóm công cụ tìm địa chỉ
+- `Leaflet Control Geocoder`: hiện icon kính lúp trên bản đồ.
+- `Nominatim`: dịch vụ tìm địa chỉ của OpenStreetMap.
+Chỗ code:
+- [core/templates/core/custom_admin_form.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/custom_admin_form.html#L328).
+### 6.1. Nhóm công cụ hiển thị bản đồ
+- `Leaflet` để hiển thị bản đồ ở trang người dùng, trang chi tiết và trang quản lý.
+- `OpenStreetMap` để làm lớp nền bản đồ.
+Chỗ code:
+- Trang chủ ở [core/templates/core/home.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/home.html#L511).
+- Trang chi tiết ở [core/templates/core/hospital_detail.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/hospital_detail.html#L575).
+- Trang thêm bệnh viện ở [core/templates/core/custom_admin_form.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/custom_admin_form.html#L272).
+### 6.3. Nhóm công cụ lấy vị trí hiện tại
+- `navigator.geolocation` của trình duyệt để lấy vị trí người dùng.
+Chỗ code:
+- Trang chủ ở [core/templates/core/home.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/home.html#L586).
+- Trang chi tiết ở [core/templates/core/hospital_detail.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/hospital_detail.html#L653).
+### 6.4. Nhóm công cụ ghim marker
+- `L.marker` để ghim bệnh viện.
+- `L.circleMarker` để đánh dấu vị trí của người dùng.
+- `L.polyline` để vẽ tuyến đường.
+Chỗ code:
+- Trang chủ: [core/templates/core/home.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/home.html#L540).
+- Trang chi tiết: [core/templates/core/hospital_detail.html](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/templates/core/hospital_detail.html#L603).
+### 6.5. Nhóm công cụ tính khoảng cách
+- `Point` để tạo tọa độ người dùng.
+- `Distance()` để tính khoảng cách giữa vị trí người dùng và bệnh viện.
+Chỗ code:
+- Tạo vị trí người dùng ở [core/views.py](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/views.py#L89).
+- Tính khoảng cách ở [core/views.py](/c:/Y3_S2/LT_GIS/GK/QL_BENHVIEN/core/views.py#L234).

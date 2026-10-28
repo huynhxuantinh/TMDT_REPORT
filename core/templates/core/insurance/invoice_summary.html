@@ -1,0 +1,11 @@
+{% load catalog_money %}
+<div aria-label="BHYT MÔ PHỎNG">
+    <h3>BHYT MÔ PHỎNG</h3>
+    <p>Mô phỏng theo dữ liệu hồ sơ và quy tắc Admin cấu hình, không phải kết quả giám định thực tế.</p>
+    {% if invoice.bhyt_snapshot %}<p>{{ invoice.bhyt_snapshot.ly_do }} Ngày xét hiệu lực: {{ invoice.bhyt_snapshot.ngay_kham }}.</p>
+    {% else %}<p>Hóa đơn cũ chưa áp dụng BHYT MÔ PHỎNG, giữ nguyên số tiền đã chốt.</p>{% endif %}
+    <p>Tổng chi phí khám và dịch vụ: <strong>{{ invoice.tong_truoc_bhyt|vnd }}</strong><br>
+       BHYT MÔ PHỎNG hỗ trợ: <strong>{{ invoice.bhyt_ho_tro|vnd }}</strong><br>
+       Bệnh nhân phải thanh toán: <strong>{{ invoice.so_tien|vnd }}</strong></p>
+    {% if invoice.hoan_tat_bhyt %}<p><strong>Đã hoàn tất — BHYT MÔ PHỎNG hỗ trợ toàn bộ; không tạo giao dịch VNPAY.</strong></p>{% endif %}
+</div>

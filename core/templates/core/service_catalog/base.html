@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dịch vụ &amp; bảng giá{% endblock %} · MedCare GIS</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { margin: 0; font: 15px/1.6 "Segoe UI", Arial, sans-serif; background: #f2f6f5; color: #1f2a27; }
+        .page { max-width: 1360px; margin: 0 auto; padding: 18px 14px 30px; }
+        .card { background: #fff; border: 1px solid #d8e5df; border-radius: 12px; margin-bottom: 18px; padding: 18px; }
+        .head, .actions, .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .head { justify-content: space-between; }
+        h1 { margin: 8px 0; font-size: 26px; } h2 { font-size: 20px; }
+        a { color: #0f7d69; } .muted { color: #5e716c; }
+        .btn { display: inline-block; padding: 8px 14px; border: 1px solid #cedcd7; border-radius: 999px; text-decoration: none; background: #fff; color: #0f7d69; font: inherit; cursor: pointer; }
+        .primary { background: #0f7d69; border-color: #0f7d69; color: white; }
+        .filters { align-items: end; margin: 16px 0; } .filters label { display: block; }
+        input, select { font: inherit; padding: 9px; border: 1px solid #cbdbd5; border-radius: 8px; max-width: 100%; }
+        .table-wrap { overflow-x: auto; } table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px; border-bottom: 1px solid #e5efea; text-align: left; vertical-align: top; }
+        th { background: #f8fbfa; white-space: nowrap; } .money { white-space: nowrap; }
+        .badge { padding: 4px 9px; border-radius: 8px; background: #edf1ef; white-space: nowrap; }
+        .active { background: #e5f4eb; color: #1f7a4f; }
+        .notice { padding: 12px; background: #edf6f1; border-left: 4px solid #0f7d69; }
+        .error { background: #fff0ec; border-color: #8a2f2f; }
+        .description { overflow-wrap: anywhere; } .inline { display: inline; }
+        .pagination { margin-top: 16px; display: flex; gap: 16px; flex-wrap: wrap; }
+        dt { font-weight: 600; margin-top: 12px; } dd { margin: 0; }
+    </style>
+</head>
+<body><main class="page">
+    <header class="card head">
+        <div><strong>MedCare GIS · Quản trị</strong><p class="muted">Danh mục và bảng giá chung cho tất cả bệnh viện</p></div>
+        <nav class="actions"><a class="btn" href="{% url 'custom_admin_dashboard' %}">Bảng điều khiển</a><a class="btn" href="{% url 'service_list' %}">Dịch vụ &amp; bảng giá</a></nav>
+    </header>
+    {% for message in messages %}<p role="status" class="notice {{ message.tags }}">{{ message }}</p>{% endfor %}
+    {% block content %}{% endblock %}
+</main></body>
+</html>

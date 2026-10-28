@@ -1,0 +1,57 @@
+{% load static catalog_money %}
+<section id="exam-services-editor" style="margin:24px 0;" aria-label="Ghi nhận dịch vụ">
+{% if services_lock_reason %}
+    <p class="alert info">{{ services_lock_reason }}</p>
+    {% include 'core/exam_services/read_only.html' %}
+{% else %}
+    <h3>DỊCH VỤ Y TẾ ĐÃ THỰC HIỆN</h3>
+    <p>Dịch vụ và chi phí được lưu khi bấm “Hoàn thành khám” hoặc “Lưu thay đổi”. Dịch vụ mới lấy giá danh mục; dịch vụ đã có trên hóa đơn giữ giá đã chốt.</p>
+    <p>Chọn phí khám trong nhóm “Khám” hoặc “Khám bệnh” nếu đã thực hiện. Phí khám được tính theo dòng đã chọn, không cộng thêm lần nữa.</p>
+    {% if billing_invoice %}<p>Hóa đơn #{{ billing_invoice.pk }} · phiên bản {{ billing_invoice.phien_ban }} · {{ billing_invoice.so_tien|vnd }}</p>{% endif %}
+    {{ services_formset.management_form }}
+    <input type="hidden" name="services_revision" value="{{ services_revision }}">
+    {{ services_formset.non_form_errors }}
+    <div id="service-search-panel" hidden>
+        <label for="service-search">Tìm dịch vụ đang áp dụng theo mã hoặc tên</label>
+        <input id="service-search" type="search" placeholder="Ví dụ: mã dịch vụ hoặc tên xét nghiệm" autocomplete="off">
+        <p id="service-search-summary" aria-live="polite"></p>
+        <div id="service-search-results"></div>
+    </div>
+    <p id="service-editor-message" role="status" aria-live="polite"></p>
+    <div class="service-table-wrap"><table class="service-table">
+        <thead><tr><th>Dịch vụ</th><th>Đơn giá</th><th>Số lượng</th><th>Thành tiền</th><th>Ghi chú</th><th>Thao tác</th></tr></thead>
+        <tbody id="performed-services-rows">{% for form in services_formset %}{% include 'core/exam_services/row.html' %}{% endfor %}</tbody>
+    </table></div>
+    <p><strong>Tổng chi phí dự kiến: <span id="service-estimated-total" aria-live="polite">{{ services_total|vnd }}</span></strong></p>
+    <p>Tổng dự kiến trên là chi phí dịch vụ trước BHYT MÔ PHỎNG. Khi lưu, hệ thống kiểm tra thẻ, quy tắc hỗ trợ và tính phần bệnh nhân phải trả.</p>
+    {% if billing_invoice %}{% include 'core/insurance/invoice_summary.html' with invoice=billing_invoice %}{% endif %}
+    <button type="button" id="service-add-row" class="btn ghost" hidden>Thêm dòng dịch vụ</button>
+    <noscript><p>Bật JavaScript để tìm kiếm và thêm nhiều dòng. Các dòng đang hiển thị vẫn có thể chọn/sửa và đánh dấu xóa.</p></noscript>
+    <template id="service-empty-row">{% include 'core/exam_services/row.html' with form=services_formset.empty_form %}</template>
+    {{ services_catalog|json_script:'exam-service-catalog-data' }}
+    <script src="{% static 'core/js/exam_services.js' %}" defer></script>
+{% endif %}
+</section>
+<style>
+    #exam-services-editor input:not([type="hidden"]), #exam-services-editor select, #exam-services-editor textarea { font:inherit; max-width:100%; border:1px solid #cadbd4; border-radius:8px; padding:8px; }
+    #service-search { display:block; width:100%; margin:8px 0; }
+    #service-search-results { display:flex; gap:8px; flex-wrap:wrap; max-height:220px; overflow:auto; }
+    #service-search-results button { white-space:normal; text-align:left; }
+    .service-table-wrap { overflow-x:auto; margin-bottom:12px; }
+    .service-table { width:100%; border-collapse:collapse; }
+    .service-table th, .service-table td { padding:10px 6px; text-align:left; vertical-align:top; border-bottom:1px solid #e0e9e4; }
+    .service-table select { width:220px; } .service-table input[type="number"] { width:85px; }
+    .service-table textarea { min-width:140px; width:100%; }
+    .service-table td > label:not(.service-delete-label) { display:block; font-size:12px; }
+    .service-unit-price { display:block; min-width:105px; }
+    #exam-services-editor .errorlist { color:#9f2d2d; padding-left:18px; }
+    @media (max-width:600px) {
+        .service-table thead { display:none; }
+        .service-table, .service-table tbody, .service-table tr, .service-table td { display:block; width:100%; }
+        .service-table tr { border:1px solid #cadbd4; border-radius:10px; padding:8px; margin-bottom:12px; }
+        .service-table tr[hidden] { display:none; }
+        .service-table td { border:0; padding:6px; }
+        .service-table select { width:100%; } .service-unit-price::before { content:'Đơn giá: '; }
+        .service-line-total::before { content:'Thành tiền: '; }
+    }
+</style>

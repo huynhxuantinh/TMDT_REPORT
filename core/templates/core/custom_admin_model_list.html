@@ -1,0 +1,161 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <style>
+        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #f2f6f5; color: #1f2a27; }
+        .page { max-width: 1360px; margin: 0 auto; padding: 18px 14px 30px; }
+        .card { background: #fff; border: 1px solid #d8e5df; border-radius: 12px; }
+        .head {
+            padding: 14px; border-bottom: 1px solid #e5efea; display: flex; justify-content: space-between;
+            gap: 10px; align-items: center; flex-wrap: wrap;
+        }
+        h1 { margin: 0; font-size: 24px; }
+        .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; padding: 9px 13px;
+            border-radius: 999px; text-decoration: none; border: 1px solid #d0ddd8; color: #0f7d69;
+            background: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+        }
+        .btn.primary { background: #0f7d69; border-color: #0f7d69; color: #fff; }
+        .layout { display: grid; grid-template-columns: 240px 1fr; gap: 12px; margin-top: 12px; }
+        .side { background: #fff; border: 1px solid #d8e5df; border-radius: 12px; padding: 10px; height: fit-content; }
+        .side a {
+            display: block; padding: 8px 9px; margin-bottom: 6px; border-radius: 8px; text-decoration: none;
+            color: #28514a; border: 1px solid transparent; font-size: 13px;
+        }
+        .side a.active { background: #ebf6f2; border-color: #b8d8cf; font-weight: 600; color: #0f7d69; }
+        .panel { background: #fff; border: 1px solid #d8e5df; border-radius: 12px; overflow: hidden; }
+        .filters {
+            padding: 12px 14px; border-bottom: 1px solid #e5efea; display: grid; gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+        .field label { display: block; font-size: 12px; color: #4d615d; margin-bottom: 3px; font-weight: 600; }
+        .field input, .field select {
+            width: 100%; box-sizing: border-box; border: 1px solid #cbdbd5; border-radius: 9px;
+            padding: 8px 10px; font-size: 13px;
+        }
+        .filter-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+        .table-wrap { overflow: auto; max-height: 68vh; }
+        table { width: 100%; border-collapse: collapse; min-width: 900px; }
+        th, td { padding: 9px 10px; border-bottom: 1px solid #edf2ef; font-size: 13px; text-align: left; }
+        th { position: sticky; top: 0; background: #f7fbf9; z-index: 1; }
+        .inline-form { display: inline; }
+        .danger { color: #8b2f2f; border-color: #e5c8c8; }
+        .msg { margin: 0; padding: 10px 14px; color: #0f7d69; font-size: 13px; border-bottom: 1px solid #e5efea; }
+        .pagination {
+            padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+            border-top: 1px solid #e5efea; gap: 10px; flex-wrap: wrap;
+        }
+        @media (max-width: 1024px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="card">
+            <div class="head">
+                <h1>{{ title }}</h1>
+                <div class="toolbar">
+                    <a class="btn primary" href="{% url 'custom_admin_model_create' model_key %}">+ T&#7841;o m&#7899;i</a>
+                    <a class="btn" href="{% url 'custom_admin_dashboard' %}">B&#7843;ng &#273;i&#7873;u khi&#7875;n</a>
+                    <a class="btn" href="{% url 'home' %}">Trang ch&#7911;</a>
+                </div>
+            </div>
+            {% if messages %}
+                {% for message in messages %}
+                    <p class="msg">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+        </div>
+
+        <div class="layout">
+            <aside class="side">
+                {% for m in admin_models %}
+                    <a href="{% url 'custom_admin_model_list' m.key %}" class="{% if m.key == model_key %}active{% endif %}">
+                        {{ m.label }}
+                    </a>
+                {% endfor %}
+            </aside>
+
+            <section class="panel">
+                <form class="filters" method="get">
+                    <div class="field">
+                        <label>T&#236;m ki&#7871;m</label>
+                        <input type="text" name="q" value="{{ q }}" placeholder="Nh&#7853;p t&#7915; kh&#243;a">
+                    </div>
+                    {% for f in filter_meta %}
+                        <div class="field">
+                            <label>{{ f.label }}</label>
+                            {% if f.type == "select" %}
+                                <select name="{{ f.name }}">
+                                    <option value="">T&#7845;t c&#7843;</option>
+                                    {% for opt in f.options %}
+                                        <option value="{{ opt.value }}" {% if f.selected == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+                                    {% endfor %}
+                                </select>
+                            {% elif f.type == "date" %}
+                                <input type="date" name="{{ f.name }}" value="{{ f.selected }}">
+                            {% else %}
+                                <input type="text" name="{{ f.name }}" value="{{ f.selected }}">
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                    <div class="filter-actions">
+                        <button class="btn primary" type="submit">L&#7885;c</button>
+                        <a class="btn" href="{% url 'custom_admin_model_list' model_key %}">X&#243;a l&#7885;c</a>
+                    </div>
+                </form>
+
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                            <tr>
+                                {% for col in columns %}
+                                    <th>{{ col.label }}</th>
+                                {% endfor %}
+                                <th>Thao t&#225;c</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in rows %}
+                                <tr>
+                                    {% for value in row.values %}
+                                        <td>{{ value }}</td>
+                                    {% endfor %}
+                                    <td>
+                                        <a class="btn" href="{% url 'custom_admin_model_edit' model_key row.id %}">S&#7917;a</a>
+                                        <form class="inline-form" method="post" action="{% url 'custom_admin_model_delete' model_key row.id %}" onsubmit="return confirm('X&#243;a b&#7843;n ghi n&#224;y?')">
+                                            {% csrf_token %}
+                                            <button class="btn danger" type="submit">X&#243;a</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr><td colspan="{{ columns|length|add:1 }}">Kh&#244;ng c&#243; d&#7919; li&#7879;u.</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="pagination">
+                    <div>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</div>
+                    <div class="toolbar">
+                        {% if page_obj.has_previous %}
+                            <a class="btn" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.previous_page_number }}">Trang tr&#432;&#7899;c</a>
+                        {% endif %}
+                        {% if page_obj.has_next %}
+                            <a class="btn" href="?{% if query_string %}{{ query_string }}&{% endif %}page={{ page_obj.next_page_number }}">Trang sau</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+</body>
+</html>
+
+

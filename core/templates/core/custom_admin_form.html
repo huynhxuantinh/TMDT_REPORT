@@ -1,0 +1,449 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    {% if show_map_picker %}
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.css">
+    {% endif %}
+    <style>
+        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #f2f6f5; color: #1f2a27; }
+        .page { max-width: 1000px; margin: 0 auto; padding: 22px 14px 32px; }
+        .card { background: #fff; border: 1px solid #d7e4df; border-radius: 14px; padding: 18px; }
+        h1 { margin: 0 0 8px; font-size: 28px; }
+        .meta { margin: 0 0 14px; color: #5e716c; font-size: 14px; }
+        .field { margin-bottom: 12px; }
+        .field label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
+        input, select, textarea {
+            width: 100%; box-sizing: border-box; border: 1px solid #cbdbd5; border-radius: 10px;
+            padding: 10px 12px; font-size: 14px; background: #fff;
+        }
+        input[type="checkbox"] { width: auto; }
+        .errorlist { margin: 4px 0 0; color: #8a2f2f; font-size: 13px; padding-left: 16px; }
+        .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px;
+            border-radius: 999px; text-decoration: none; border: 1px solid #cedcd7; background: #fff;
+            color: #0f7d69; font-weight: 600; font-size: 13px; cursor: pointer;
+        }
+        .btn.primary { background: #0f7d69; border-color: #0f7d69; color: #fff; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .checkbox-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0 2px; }
+        .checkbox-item {
+            border: 1px solid #d7e4df; border-radius: 10px; padding: 10px 12px;
+            display: inline-flex; align-items: center; gap: 8px; background: #f9fcfb;
+        }
+
+        .section-title { margin: 16px 0 10px; font-size: 18px; color: #1f3c36; }
+        .schedule-table-wrap { border: 1px solid #d7e4df; border-radius: 12px; overflow: auto; }
+        .schedule-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+        .schedule-table th, .schedule-table td { border-bottom: 1px solid #edf2ef; padding: 10px; text-align: left; }
+        .schedule-table th { background: #f6fbf9; font-size: 13px; }
+        .schedule-table tr:last-child td { border-bottom: 0; }
+
+        .map-block { margin-bottom: 14px; }
+        #hospital-map { width: 100%; height: 360px; border: 1px solid #cbdbd5; border-radius: 10px; overflow: hidden; }
+        .map-note { margin-top: 6px; font-size: 13px; color: #5e716c; }
+        .image-manager { margin-top: 12px; border: 1px solid #d7e4df; border-radius: 12px; padding: 12px; background: #fbfefd; }
+        .image-manager .hint { margin: 6px 0 0; font-size: 12px; color: #5e716c; }
+        .image-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+        .image-item { border: 1px solid #d7e4df; border-radius: 10px; background: #fff; overflow: hidden; }
+        .image-item img { width: 100%; height: 122px; object-fit: cover; display: block; background: #eef5f2; }
+        .image-actions { padding: 8px; display: grid; gap: 8px; }
+        .image-actions label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #2a4440; }
+        .empty-images { margin-top: 10px; font-size: 13px; color: #5e716c; }
+
+        @media (max-width: 800px) {
+            .grid-2 { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="card">
+            <h1>{{ title }}</h1>
+            {% if object_name %}
+                <p class="meta">&#272;&#7889;i t&#432;&#7907;ng: {{ object_name }}</p>
+            {% endif %}
+
+            {% if messages %}
+                {% for message in messages %}
+                    <p class="meta">{{ message }}</p>
+                {% endfor %}
+            {% endif %}
+
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                {% if form.non_field_errors %}
+                    <ul class="errorlist">
+                        {% for err in form.non_field_errors %}
+                            <li>{{ err }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+
+                {% if show_hospital_layout %}
+                    <div class="grid-2">
+                        <div class="field">
+                            <label for="{{ form.ten.id_for_label }}">{{ form.ten.label }}</label>
+                            {{ form.ten }}
+                            {{ form.ten.errors }}
+                        </div>
+                        <div class="field">
+                            <label for="{{ form.phuong.id_for_label }}">{{ form.phuong.label }}</label>
+                            {{ form.phuong }}
+                            {{ form.phuong.errors }}
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.dia_chi.id_for_label }}">{{ form.dia_chi.label }}</label>
+                        {{ form.dia_chi }}
+                        {{ form.dia_chi.errors }}
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="field">
+                            <label for="{{ form.lat.id_for_label }}">{{ form.lat.label }}</label>
+                            {{ form.lat }}
+                            {{ form.lat.errors }}
+                        </div>
+                        <div class="field">
+                            <label for="{{ form.lon.id_for_label }}">{{ form.lon.label }}</label>
+                            {{ form.lon }}
+                            {{ form.lon.errors }}
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label>Thu&#7897;c t&#237;nh</label>
+                        <div class="checkbox-row">
+                            <label class="checkbox-item">{{ form.cap_cuu_24h }} C&#7845;p c&#7913;u 24/7</label>
+                            <label class="checkbox-item">{{ form.co_bhyt }} C&#243; BHYT</label>
+                        </div>
+                        {{ form.cap_cuu_24h.errors }}
+                        {{ form.co_bhyt.errors }}
+                    </div>
+
+                    <div class="field">
+                        <label for="{{ form.loai_hinh.id_for_label }}">{{ form.loai_hinh.label }}</label>
+                        {{ form.loai_hinh }}
+                        {{ form.loai_hinh.errors }}
+                    </div>
+
+                    {% if show_hospital_image_manager %}
+                        <div class="section-title">Hình ảnh bệnh viện</div>
+                        <div class="image-manager">
+                            <div class="field">
+                                <label for="hospital_images">Tải ảnh mới (có thể chọn nhiều ảnh)</label>
+                                <input id="hospital_images" name="hospital_images" type="file" accept="image/*" multiple>
+                                <p class="hint">Định dạng: JPG, JPEG, PNG, WEBP. Tối đa 5MB mỗi ảnh.</p>
+                            </div>
+
+                            {% if hospital_images %}
+                                <div class="image-grid">
+                                    {% for image in hospital_images %}
+                                        <div class="image-item">
+                                            <img src="{{ image.hinh_anh.url }}" alt="Ảnh bệnh viện {{ forloop.counter }}">
+                                            <div class="image-actions">
+                                                <label>
+                                                    <input
+                                                        type="radio"
+                                                        name="cover_image_id"
+                                                        value="{{ image.id }}"
+                                                        {% if selected_cover_id %}
+                                                            {% if selected_cover_id == image.id|stringformat:"s" %}checked{% endif %}
+                                                        {% elif image.la_anh_dai_dien %}
+                                                            checked
+                                                        {% endif %}
+                                                    >
+                                                    Ảnh đại diện
+                                                </label>
+                                                <label>
+                                                    <input
+                                                        type="checkbox"
+                                                        name="delete_image_ids"
+                                                        value="{{ image.id }}"
+                                                        {% if image.id in selected_delete_ids %}checked{% endif %}
+                                                    >
+                                                    Xóa ảnh này
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="empty-images">Chưa có ảnh nào cho bệnh viện này.</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    {% for field in form %}
+                        <div class="field">
+                            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.errors %}
+                                <ul class="errorlist">
+                                    {% for err in field.errors %}
+                                        <li>{{ err }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+
+                    {% if show_exam_image_manager %}
+                        <div class="section-title">Ảnh phiếu khám</div>
+                        <div class="image-manager">
+                            <div class="field">
+                                <label for="exam_images">Tải ảnh mới (có thể chọn nhiều ảnh)</label>
+                                <input id="exam_images" name="exam_images" type="file" accept="image/*" multiple>
+                                <p class="hint">Định dạng: JPG, JPEG, PNG, WEBP. Tối đa 5MB mỗi ảnh.</p>
+                            </div>
+
+                            {% if exam_images %}
+                                <div class="image-grid">
+                                    {% for image in exam_images %}
+                                        <div class="image-item">
+                                            <img src="{{ image.hinh_anh.url }}" alt="Ảnh phiếu khám {{ forloop.counter }}">
+                                            <div class="image-actions">
+                                                <label>
+                                                    <input
+                                                        type="checkbox"
+                                                        name="delete_exam_image_ids"
+                                                        value="{{ image.id }}"
+                                                        {% if image.id in selected_delete_exam_ids %}checked{% endif %}
+                                                    >
+                                                    Xóa ảnh này
+                                                </label>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="empty-images">Chưa có ảnh nào cho phiếu khám này.</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                {% if show_map_picker %}
+                    <div class="section-title">Ch&#7885;n v&#7883; tr&#237; tr&#234;n b&#7843;n &#273;&#7891;</div>
+                    <div class="map-block">
+                        <div id="hospital-map"></div>
+                        <div id="map-note" class="map-note">B&#7845;m icon k&#237;nh l&#250;p tr&#234;n b&#7843;n &#273;&#7891; &#273;&#7875; t&#236;m &#273;&#7883;a ch&#7881;, ho&#7863;c k&#233;o ghim &#273;&#7875; c&#7853;p nh&#7853;t V&#297; &#273;&#7897;/Kinh &#273;&#7897;.</div>
+                    </div>
+                {% endif %}
+
+                {% if show_hospital_schedule %}
+                    <div class="section-title">L&#7883;ch l&#224;m vi&#7879;c theo th&#7913;</div>
+                    <div class="schedule-table-wrap">
+                        <table class="schedule-table">
+                            <thead>
+                                <tr>
+                                    <th>Th&#7913;</th>
+                                    <th>Ngh&#7881;</th>
+                                    <th>Gi&#7901; m&#7903;</th>
+                                    <th>Gi&#7901; &#273;&#243;ng</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in schedule_rows %}
+                                    <tr>
+                                        <td>{{ row.label }}</td>
+                                        <td>
+                                            <input type="checkbox" name="schedule_{{ row.thu }}_nghi" value="1" {% if row.nghi %}checked{% endif %}>
+                                        </td>
+                                        <td>
+                                            <input type="time" name="schedule_{{ row.thu }}_gio_mo" value="{{ row.gio_mo_raw }}">
+                                        </td>
+                                        <td>
+                                            <input type="time" name="schedule_{{ row.thu }}_gio_dong" value="{{ row.gio_dong_raw }}">
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% endif %}
+
+                <div class="actions">
+                    <button class="btn primary" type="submit">L&#432;u</button>
+                    {% if back_href %}
+                        <a class="btn" href="{{ back_href }}">Quay l&#7841;i</a>
+                    {% elif back_url %}
+                        <a class="btn" href="{% url back_url %}">Quay l&#7841;i</a>
+                    {% endif %}
+                    <a class="btn" href="{% url 'custom_admin_dashboard' %}">B&#7843;ng &#273;i&#7873;u khi&#7875;n</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var hospitalSelect = document.getElementById("id_benh_vien");
+            var departmentSelect = document.getElementById("id_khoa");
+            if (!hospitalSelect || !departmentSelect) return;
+
+            var initialDepartmentId = departmentSelect.value || "";
+
+            function setDepartmentOptions(items, selectedId) {
+                departmentSelect.innerHTML = "";
+
+                var emptyOption = document.createElement("option");
+                emptyOption.value = "";
+                emptyOption.textContent = "---------";
+                departmentSelect.appendChild(emptyOption);
+
+                items.forEach(function (item) {
+                    var option = document.createElement("option");
+                    option.value = String(item.id);
+                    option.textContent = item.ten;
+                    if (selectedId && String(item.id) === String(selectedId)) {
+                        option.selected = true;
+                    }
+                    departmentSelect.appendChild(option);
+                });
+            }
+
+            async function loadDepartments(selectedId) {
+                var hospitalId = (hospitalSelect.value || "").trim();
+                if (!hospitalId) {
+                    setDepartmentOptions([], "");
+                    return;
+                }
+
+                try {
+                    var url = "{% url 'custom_admin_departments_api' %}?benh_vien_id=" + encodeURIComponent(hospitalId);
+                    var response = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" } });
+                    if (!response.ok) throw new Error("department fetch failed");
+                    var data = await response.json();
+                    var items = Array.isArray(data.results) ? data.results : [];
+                    setDepartmentOptions(items, selectedId);
+                } catch (error) {
+                    setDepartmentOptions([], "");
+                }
+            }
+
+            hospitalSelect.addEventListener("change", function () {
+                loadDepartments("");
+            });
+
+            loadDepartments(initialDepartmentId);
+        })();
+    </script>
+
+    {% if show_map_picker %}
+        <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+        <script>
+            (function () {
+                var latInput = document.getElementById("id_lat");
+                var lonInput = document.getElementById("id_lon");
+                var mapEl = document.getElementById("hospital-map");
+                var noteEl = document.getElementById("map-note");
+                if (!latInput || !lonInput || !mapEl || typeof L === "undefined") return;
+
+                var defaultLat = 10.77;
+                var defaultLon = 106.70;
+
+                var lat = parseFloat(latInput.value);
+                var lon = parseFloat(lonInput.value);
+                var hasInitialCoords = !Number.isNaN(lat) && !Number.isNaN(lon);
+                var viewLat = hasInitialCoords ? lat : defaultLat;
+                var viewLon = hasInitialCoords ? lon : defaultLon;
+
+                var map = L.map("hospital-map").setView([viewLat, viewLon], 12);
+                L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+                    maxZoom: 19,
+                    referrerPolicy: "strict-origin-when-cross-origin",
+                    attribution: "&copy; OpenStreetMap contributors"
+                }).addTo(map);
+
+                var marker = null;
+
+                function setMapNote(text) {
+                    if (noteEl) noteEl.textContent = text;
+                }
+
+                function updateInputs(latlng) {
+                    latInput.value = latlng.lat.toFixed(6);
+                    lonInput.value = latlng.lng.toFixed(6);
+                }
+
+                function bindMarkerDrag(targetMarker) {
+                    targetMarker.on("dragend", function (e) {
+                        updateInputs(e.target.getLatLng());
+                    });
+                }
+
+                function ensureMarker(latlng) {
+                    if (marker) return marker;
+                    marker = L.marker(latlng, { draggable: true }).addTo(map);
+                    bindMarkerDrag(marker);
+                    return marker;
+                }
+
+                function setMapLocation(latlng, zoom) {
+                    ensureMarker(latlng).setLatLng(latlng);
+                    updateInputs(latlng);
+                    map.setView(latlng, zoom || 16);
+                }
+
+                if (hasInitialCoords) {
+                    marker = L.marker([lat, lon], { draggable: true }).addTo(map);
+                    bindMarkerDrag(marker);
+                }
+
+                map.on("click", function (e) {
+                    setMapLocation(e.latlng);
+                });
+
+                function updateMarkerFromInputs() {
+                    var newLat = parseFloat(latInput.value);
+                    var newLon = parseFloat(lonInput.value);
+                    if (Number.isNaN(newLat) || Number.isNaN(newLon)) return;
+                    setMapLocation({ lat: newLat, lng: newLon }, map.getZoom());
+                }
+
+                latInput.addEventListener("change", updateMarkerFromInputs);
+                lonInput.addEventListener("change", updateMarkerFromInputs);
+
+                if (L.Control && typeof L.Control.geocoder === "function") {
+                    var geocoderOptions = {
+                        position: "topleft",
+                        collapsed: true,
+                        defaultMarkGeocode: false,
+                        placeholder: "Tìm địa chỉ...",
+                        errorMessage: "Không tìm thấy địa chỉ"
+                    };
+                    if (L.Control.Geocoder && typeof L.Control.Geocoder.nominatim === "function") {
+                        geocoderOptions.geocoder = L.Control.Geocoder.nominatim({
+                            geocodingQueryParams: {
+                                countrycodes: "vn",
+                                "accept-language": "vi,en"
+                            }
+                        });
+                    }
+
+                    L.Control.geocoder(geocoderOptions)
+                        .on("markgeocode", function (e) {
+                            if (!e || !e.geocode || !e.geocode.center) return;
+                            setMapLocation(e.geocode.center, 17);
+                            setMapNote("Đã chọn: " + (e.geocode.name || "Vị trí"));
+                        })
+                        .addTo(map);
+                } else {
+                    setMapNote("Không tải được thanh tìm kiếm trên bản đồ. Bạn vẫn có thể bấm lên bản đồ để chọn vị trí.");
+                }
+            })();
+        </script>
+    {% endif %}
+</body>
+</html>
+
+

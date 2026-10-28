@@ -1,0 +1,22 @@
+{% extends 'core/service_catalog/base.html' %}
+{% block title %}BHYT MÔ PHỎNG{% endblock %}
+{% block content %}
+<section class="card">
+    <div class="head"><h1>BHYT MÔ PHỎNG</h1><a class="btn primary" href="{% url 'bhyt_rule_create' %}">Thêm quy tắc</a></div>
+    <p>Mô phỏng phục vụ đồ án, không kết nối BHXH và không phải kết quả giám định thực tế.</p>
+    <p>Chỉ xét thẻ còn hiệu lực vào ngày khám, bệnh viện có BHYT và quy tắc của dịch vụ còn hiệu lực. Mỗi dịch vụ có một quy tắc, không cộng chồng tỷ lệ.</p>
+    <form method="get" class="filters"><label>Tìm tên quy tắc/mã/tên dịch vụ <input name="q" value="{{ q }}"></label><button class="btn" type="submit">Tìm kiếm</button></form>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Dịch vụ</th><th>Quy tắc BHYT MÔ PHỎNG</th><th>Tỷ lệ hỗ trợ</th><th>Hiệu lực theo ngày khám</th><th>Trạng thái</th><th></th></tr></thead>
+        <tbody>{% for rule in page_obj %}<tr>
+            <td>{{ rule.dich_vu }}</td><td>{{ rule.ten }}</td><td>{{ rule.ty_le }}%</td>
+            <td>{{ rule.hieu_luc_tu|date:'d/m/Y' }} — {{ rule.hieu_luc_den|date:'d/m/Y'|default:'Chưa giới hạn' }}</td>
+            <td>{{ rule.dang_ap_dung|yesno:'Đang áp dụng,Ngừng áp dụng' }}</td>
+            <td><a href="{% url 'bhyt_rule_detail' rule.pk %}">Chi tiết / lịch sử</a> · <a href="{% url 'bhyt_rule_edit' rule.pk %}">Sửa / bật tắt</a></td>
+        </tr>{% empty %}<tr><td colspan="6">Chưa có quy tắc BHYT MÔ PHỎNG phù hợp. Admin tự cấu hình tỷ lệ cho dữ liệu đồ án.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    <nav class="pagination">{% if page_obj.has_previous %}<a href="?q={{ q|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Trang trước</a>{% endif %}
+        <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?q={{ q|urlencode }}&amp;page={{ page_obj.next_page_number }}">Trang sau</a>{% endif %}</nav>
+</section>
+{% endblock %}

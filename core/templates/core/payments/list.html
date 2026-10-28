@@ -1,0 +1,43 @@
+{% extends 'core/payments/base.html' %}
+{% load catalog_money %}
+{% block content %}
+<section>
+    {% if user.is_staff or user.is_superuser %}<a href="{% url 'custom_admin_dashboard' %}">← Quản trị</a> · <a href="{% url 'cashier_list' %}">Quản lý thu ngân</a>{% endif %}
+    <h1>Thu tiền sau khám</h1>
+    <p>Chọn ca đã hoàn tất để xem chi phí dịch vụ, hóa đơn và kết quả thanh toán.</p>
+    {% if profile %}<p>Thu ngân: {{ user.username }} · {{ profile.benh_vien.ten }}</p>{% endif %}
+    {% if monitor %}<p class="muted">Theo dõi toàn hệ thống · chỉ xem.</p>{% endif %}
+    <form method="get">
+        <label>Tìm mã hóa đơn / tên bệnh nhân <input name="q" value="{{ q }}" maxlength="100"></label>
+        <label>Trạng thái <select name="status">
+            <option value="">Tất cả</option>
+            <option value="unpaid" {% if status == 'unpaid' %}selected{% endif %}>Chưa thanh toán</option>
+            <option value="pending" {% if status == 'pending' %}selected{% endif %}>Đang xử lý</option>
+            <option value="reconcile" {% if status == 'reconcile' %}selected{% endif %}>Cần đối soát</option>
+            <option value="paid" {% if status == 'paid' %}selected{% endif %}>Đã thanh toán</option>
+            <option value="failed" {% if status == 'failed' %}selected{% endif %}>Hủy / thất bại / hết hạn</option>
+        </select></label>
+        <button type="submit">Tìm / làm mới trạng thái</button>
+    </form>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Lịch khám</th><th>Bệnh nhân</th><th>Bệnh viện</th><th>Khoản phải thu</th><th></th></tr></thead>
+        <tbody>{% for lich in page_obj %}<tr>
+            <td>#{{ lich.pk }} · {{ lich.ngay_kham|date:'d/m/Y' }} {{ lich.gio_kham|time:'H:i' }}</td>
+            <td>{{ lich.benh_nhan.ho_ten }}</td><td>{{ lich.bac_si.benh_vien.ten }}</td>
+            <td>{% if lich.hoa_don %}Hóa đơn #{{ lich.hoa_don.pk }}<br>
+                Tổng: {{ lich.hoa_don.tong_truoc_bhyt|vnd }}<br>BHYT mô phỏng: {{ lich.hoa_don.bhyt_ho_tro|vnd }}<br>
+                <strong>Thực trả: {{ lich.hoa_don.so_tien|vnd }}</strong><br>
+                {% if lich.hoa_don.can_doi_soat %}Cần đối soát
+                {% elif lich.hoa_don.hoan_tat_bhyt %}Đã hoàn tất — không cần thu tiền (BHYT MÔ PHỎNG)
+                {% elif lich.payment_pending %}Đang xử lý
+                {% else %}{{ lich.hoa_don.get_trang_thai_display }}{% if lich.payment_failed and lich.hoa_don.trang_thai == 'unpaid' %} · Lần trước hủy / thất bại / hết hạn{% endif %}{% endif %}
+                {% for attempt in lich.hoa_don.giao_dichs.all %}{% if forloop.first %}<br>{{ attempt.get_phuong_thuc_display }} · {{ attempt.get_trang_thai_display }}{% endif %}{% endfor %}
+            {% else %}Chưa lập hóa đơn{% endif %}</td>
+            <td><a href="{% url detail_route lich.pk %}">Xem hóa đơn</a></td>
+        </tr>{% empty %}<tr><td colspan="5">Chưa có ca khám hoàn tất.</td></tr>{% endfor %}</tbody>
+    </table></div>
+    {% if page_obj.has_previous %}<a href="?q={{ q|urlencode }}&amp;status={{ status|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Trang trước</a>{% endif %}
+    <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}<a href="?q={{ q|urlencode }}&amp;status={{ status|urlencode }}&amp;page={{ page_obj.next_page_number }}">Trang sau</a>{% endif %}
+</section>
+{% endblock %}
