@@ -187,6 +187,11 @@ class AdminBacSiForm(forms.ModelForm):
             except (TypeError, ValueError):
                 self.fields["khoa"].queryset = Khoa.objects.none()
 
+        if self.instance and self.instance.pk and LichKham.objects.filter(bac_si=self.instance).exists():
+            self.fields["benh_vien"].disabled = True
+            self.fields["khoa"].disabled = True
+            self.fields["benh_vien"].help_text = "Bác sĩ đã có lịch khám; không thể chuyển bệnh viện để giữ nguyên lịch sử hóa đơn."
+
     def clean(self):
         cleaned_data = super().clean()
         benh_vien = cleaned_data.get("benh_vien")
@@ -299,7 +304,11 @@ class AdminUserForm(forms.ModelForm):
     def save(self, commit=True):
         user = super().save(commit=False)
         role = self.cleaned_data.get("role", self.ROLE_USER)
-        if role == self.ROLE_ADMIN:
+        if user.is_superuser:
+            # Defensive preservation: privileged-account edits must never silently demote it.
+            user.is_staff = True
+            user.is_superuser = True
+        elif role == self.ROLE_ADMIN:
             user.is_staff = True
             user.is_superuser = False
         else:

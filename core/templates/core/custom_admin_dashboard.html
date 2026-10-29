@@ -317,8 +317,8 @@
                 <a class="btn" href="{% url 'custom_admin_hospitals' %}">B&#7879;nh vi&#7879;n</a>
                 <a class="btn" href="{% url 'custom_admin_departments' %}">Khoa</a>
                 <a class="btn" href="{% url 'custom_admin_doctors' %}">B&#225;c s&#297;</a>
-                <a class="btn" href="{% url 'custom_admin_model_list' 'tai-khoan' %}">T&#224;i kho&#7843;n</a>
-                <a class="btn primary" href="{% url 'logout' %}">&#272;&#259;ng xu&#7845;t</a>
+                {% if user.is_superuser %}<a class="btn" href="{% url 'custom_admin_model_list' 'tai-khoan' %}">T&#224;i kho&#7843;n</a>{% endif %}
+                <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn primary" type="submit">&#272;&#259;ng xu&#7845;t</button></form>
             </div>
         </header>
 

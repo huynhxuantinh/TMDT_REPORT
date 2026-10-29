@@ -36,9 +36,16 @@
             </table></div>
         {% else %}<p>Hóa đơn thử nghiệm cũ: giữ nguyên số tiền, không tự chuyển đổi sang chi tiết dịch vụ.</p>{% endif %}
         {% include 'core/insurance/invoice_summary.html' %}
+        {% if can_resolve_reconciliation %}
+        <form method="post" action="{% url 'cashier_monitor_reconcile_close' invoice.pk %}">{% csrf_token %}
+            <p class="notice">Chi bam sau khi da kiem tra VNPAY va xac nhan khong co giao dich thanh cong. Thao tac duoc ghi log va mo lai hoa don.</p>
+            <button type="submit">Ket thuc doi soat, mo khoa hoa don</button>
+        </form>
+        {% endif %}
         {% if invoice.can_doi_soat %}<p class="notice">Có kết quả VNPAY mâu thuẫn. Đã khóa lần thu mới; cần đối soát với VNPAY trước khi xử lý tiếp.</p>{% endif %}
         <p><strong class="payment-status" data-status="{{ invoice.trang_thai }}">{% if invoice.hoan_tat_bhyt %}Đã hoàn tất bằng BHYT MÔ PHỎNG{% else %}{{ invoice.get_trang_thai_display }}{% endif %}</strong>{% if invoice.ngay_thanh_toan %} · {{ invoice.ngay_thanh_toan|date:'d/m/Y H:i:s' }}{% endif %}</p>
-        {% if pending %}<p class="notice">Đang chờ xác nhận IPN. Không thu lại, kể cả khi đã đóng cổng thanh toán hoặc quá 15 phút. Kiểm tra ngrok và IPN trên VNPAY SIT Testing, sau đó tải lại trang.</p>{% endif %}
+        {% if pending %}<p class="notice">Đang chờ xác nhận thanh toán. Vui lòng tải lại trạng thái sau ít phút.{% if show_technical %} Giao dịch quá hạn tự chuyển sang hết hạn; có thể chạy <code>manage.py expire_vnpay_payments</code>.{% endif %}</p>{% endif %}
+        {% if overdue_pending %}<p class="notice">Giao dịch VNPAY đã quá hạn. Khi thực hiện thao tác tiếp theo, hệ thống sẽ chuyển giao dịch này sang hết hạn và ghi log.</p>{% endif %}
         {% if can_start %}
         <form method="post" action="{% url 'payment_start' invoice.pk %}">{% csrf_token %}
             <p>Thực hiện tại quầy khi bệnh nhân có mặt. Số tiền được lấy từ hóa đơn đã lưu.</p>
@@ -54,27 +61,27 @@
         <p><a href="{% url detail_route lich.pk %}">Tải lại trạng thái</a> · VNPAY được xác nhận tự động bằng IPN; không xác nhận tiền mặt cho giao dịch VNPAY.</p>
     {% elif not completion_error and not monitor %}
         <form method="post" action="{% url 'invoice_create' lich.pk %}">{% csrf_token %}
-            <p class="muted">Ca khám cũ chưa có hóa đơn: lập từ các dịch vụ bác sĩ đã ghi nhận. Nếu chưa có dịch vụ, bác sĩ phụ trách cần bổ sung trước.</p>
+            <p class="muted">Ca khám cũ chưa có hóa đơn: quản lý chi nhánh cần ghi nhận dịch vụ thực tế trước, sau đó hóa đơn sẽ được tính từ dữ liệu đã chốt.</p>
             <button type="submit">Lập hóa đơn từ dịch vụ</button>
         </form>
     {% endif %}
 </section>
 {% if invoice %}<section>
     <h2>Email phiếu thanh toán</h2>
-    <p>Chỉ gửi vào Mailtrap Email Testing, không gửi tới hộp thư thật.</p>
+    <p>{% if show_technical %}Chỉ gửi vào Mailtrap Email Testing, không gửi tới hộp thư thật.{% else %}Email xác nhận được hệ thống xử lý sau khi thanh toán thành công.{% endif %}</p>
     {% if receipt_email %}
         <p><strong>{{ receipt_email.get_trang_thai_display }}</strong> · Lần xử lý: {{ receipt_email.so_lan_thu }}</p>
         {% if receipt_email.gui_luc %}<p>Thời gian ghi nhận gửi: {{ receipt_email.gui_luc|date:'d/m/Y H:i:s' }}</p>{% endif %}
         {% if receipt_email_error %}<p class="notice">{{ receipt_email_error }}</p>{% endif %}
         {% if receipt_email.trang_thai == 'sending' or receipt_email.trang_thai == 'unknown' %}
-            <p class="notice">Không bấm gửi lại. Nếu trạng thái kéo dài, nhờ Admin kiểm tra Mailtrap Inbox và đối soát kết quả.</p>
+            <p class="notice">Không bấm gửi lại. Nếu trạng thái kéo dài, vui lòng liên hệ Admin kiểm tra kết quả.</p>
         {% endif %}
     {% elif invoice.hoan_tat_bhyt %}<p>Hóa đơn 0đ tự hoàn tất; có thể xem/in/tải PDF, không gửi email xác nhận thu tiền.</p>
     {% else %}<p>Chưa có bản ghi gửi email. Email tự kích hoạt sau khi giao dịch thanh toán mới được ghi nhận thành công.</p>{% endif %}
     {% if can_retry_email %}
         <form method="post" action="{% url 'receipt_email_retry' invoice.pk %}">{% csrf_token %}
             <input type="hidden" name="attempts" value="{{ receipt_email.so_lan_thu|default:0 }}">
-            <button type="submit">{% if receipt_email %}Thử gửi lại vào Mailtrap Testing{% else %}Gửi phiếu vào Mailtrap Testing{% endif %}</button>
+            <button type="submit">{% if receipt_email %}Thử gửi lại email xác nhận{% else %}Gửi email xác nhận{% endif %}</button>
         </form>
     {% endif %}
 </section>{% endif %}
@@ -98,7 +105,7 @@
         </tr>{% empty %}<tr><td colspan="4">Chưa có giao dịch.</td></tr>{% endfor %}</tbody>
     </table></div>
 </section>{% endif %}
-{% if ipn_url %}<section>
+{% if show_technical and ipn_url %}<section>
     <h2>Cấu hình Sandbox</h2>
     <p>IPN URL cần nhập trên VNPAY SIT Testing: <code>{{ ipn_url }}</code></p>
     <p>ReturnURL được gửi tự động: <code>{{ return_url }}</code></p>

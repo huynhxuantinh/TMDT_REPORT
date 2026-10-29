@@ -16,6 +16,7 @@ urlpatterns = [
     path('quan-tri/thu-ngan/<int:pk>/sua/', cashier_views.branch_manager_form, name='cashier_edit'),
     path('quan-tri/thu-ngan/hoa-don/', payment_views.payment_list, {'monitor': True}, name='cashier_monitor'),
     path('quan-tri/thu-ngan/hoa-don/<int:lich_id>/', payment_views.payment_detail, {'monitor': True}, name='cashier_monitor_detail'),
+    path('quan-tri/thu-ngan/hoa-don/<int:invoice_id>/ket-thuc-doi-soat/', payment_views.reconciliation_close, name='cashier_monitor_reconcile_close'),
     path('thanh-toan/hoa-don/<int:invoice_id>/tien-mat/', payment_views.payment_cash, name='payment_cash'),
     path('quan-tri/bhyt-mo-phong/', insurance_views.rule_list, name='bhyt_rule_list'),
     path('quan-tri/bhyt-mo-phong/tao/', insurance_views.rule_form, name='bhyt_rule_create'),

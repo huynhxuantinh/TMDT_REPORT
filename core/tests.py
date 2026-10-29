@@ -2,13 +2,14 @@ import datetime
 
 from django.core import mail
 from django.core.exceptions import ValidationError
+from django.db.models.deletion import ProtectedError
 from django.contrib.auth.models import User
 from django.contrib.gis.geos import Point
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from core.forms import AdminBenhVienForm
+from core.forms import AdminBenhVienForm, AdminUserForm
 from core.models import (
     BacSi,
     BenhNhan,
@@ -18,6 +19,7 @@ from core.models import (
     Khoa,
     LichKham,
     PhieuKham,
+    QuanLyChiNhanh,
 )
 
 
@@ -338,6 +340,11 @@ class AdminDashboardTests(TestCase):
             username="user_demo",
             password="pass12345",
         )
+        self.staff_user = User.objects.create_user(
+            username="staff_demo",
+            password="pass12345",
+            is_staff=True,
+        )
         self.hospital = BenhVien.objects.create(
             ten="BV Admin Test",
             dia_chi="1 Duong Test",
@@ -385,16 +392,12 @@ class AdminDashboardTests(TestCase):
         self.assertEqual(self.client.get(reverse("custom_admin_doctors")).status_code, 200)
         self.assertEqual(self.client.get(reverse("custom_admin_model_list", args=["tai-khoan"])).status_code, 200)
 
-    def test_admin_user_form_only_shows_role_field_for_permissions(self):
+    def test_superuser_cannot_edit_a_superuser_in_custom_account_directory(self):
         self.client.login(username="admin_demo", password="pass12345")
         response = self.client.get(
             reverse("custom_admin_model_edit", args=["tai-khoan", self.admin_user.id])
         )
-
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'name="role"')
-        self.assertNotContains(response, 'name="is_staff"')
-        self.assertNotContains(response, 'name="is_superuser"')
+        self.assertEqual(response.status_code, 403)
 
     def test_admin_department_api_returns_departments_by_hospital(self):
         self.client.login(username="admin_demo", password="pass12345")
@@ -442,7 +445,7 @@ class AdminDashboardTests(TestCase):
         self.assertTrue(created_user.is_staff)
         self.assertFalse(created_user.is_superuser)
 
-    def test_admin_edit_own_password_keeps_session(self):
+    def test_superuser_cannot_edit_own_account_through_custom_directory(self):
         self.client.login(username="admin_demo", password="pass12345")
         response = self.client.post(
             reverse("custom_admin_model_edit", args=["tai-khoan", self.admin_user.id]),
@@ -456,12 +459,101 @@ class AdminDashboardTests(TestCase):
                 "password": "NewPass@12345",
             },
         )
-        self.assertEqual(response.status_code, 302)
-        # Still authenticated after changing own password.
-        follow = self.client.get(reverse("custom_admin_model_list", args=["tai-khoan"]))
-        self.assertEqual(follow.status_code, 200)
+        self.assertEqual(response.status_code, 403)
         self.admin_user.refresh_from_db()
-        self.assertTrue(self.admin_user.check_password("NewPass@12345"))
+        self.assertTrue(self.admin_user.check_password("pass12345"))
+        self.assertTrue(self.admin_user.is_superuser)
+
+    def test_staff_cannot_manage_accounts_or_promote_themselves(self):
+        self.client.login(username="staff_demo", password="pass12345")
+        routes = [
+            ("custom_admin_model_list", ["tai-khoan"]),
+            ("custom_admin_model_create", ["tai-khoan"]),
+            ("custom_admin_model_edit", ["tai-khoan", self.admin_user.pk]),
+            ("custom_admin_model_delete", ["tai-khoan", self.admin_user.pk]),
+        ]
+        for route, args in routes:
+            request = self.client.post if route == "custom_admin_model_delete" else self.client.get
+            self.assertEqual(request(reverse(route, args=args)).status_code, 403)
+        self.staff_user.refresh_from_db()
+        self.assertFalse(self.staff_user.is_superuser)
+
+    def test_superuser_cannot_delete_self_or_another_superuser(self):
+        other = User.objects.create_superuser("other_root", "other@example.com", "pass12345")
+        self.client.login(username="admin_demo", password="pass12345")
+        for target in [self.admin_user, other]:
+            response = self.client.post(reverse("custom_admin_model_delete", args=["tai-khoan", target.pk]))
+            self.assertEqual(response.status_code, 403)
+            self.assertTrue(User.objects.filter(pk=target.pk).exists())
+
+    def test_admin_user_form_never_demotes_a_superuser(self):
+        form = AdminUserForm({
+            "username": self.admin_user.username,
+            "email": self.admin_user.email,
+            "first_name": "",
+            "last_name": "",
+            "is_active": "on",
+            "role": "admin",
+        }, instance=self.admin_user)
+        self.assertTrue(form.is_valid(), form.errors)
+        account = form.save()
+        self.assertTrue(account.is_superuser)
+        self.assertTrue(account.is_staff)
+
+    def test_medical_records_block_hospital_delete_and_show_impact(self):
+        self.client.login(username="admin_demo", password="pass12345")
+        url = reverse("custom_admin_model_delete", args=["benh-vien", self.hospital.pk])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Không thể xóa")
+        self.assertContains(response, "Bác sĩ: 1")
+        self.assertNotContains(response, "Xác nhận xóa")
+        self.client.post(url)
+        self.assertTrue(BenhVien.objects.filter(pk=self.hospital.pk).exists())
+        with self.assertRaises(ProtectedError):
+            self.hospital.delete()
+
+    def test_doctor_user_cannot_be_deleted_with_medical_profile(self):
+        doctor_account = User.objects.create_user("doctor_account", password="pass12345")
+        self.doctor.user = doctor_account
+        self.doctor.save(update_fields=["user"])
+        with self.assertRaises(ProtectedError):
+            doctor_account.delete()
+
+    def test_doctor_with_appointments_cannot_move_to_another_hospital(self):
+        patient = BenhNhan.objects.create(
+            ho_ten="Patient move guard", ngay_sinh=datetime.date(2000, 1, 1), gioi_tinh="nam",
+            so_dien_thoai="0909555777", dia_chi="Test",
+        )
+        LichKham.objects.create(
+            benh_nhan=patient, bac_si=self.doctor, ngay_kham=timezone.localdate() + datetime.timedelta(days=1),
+            gio_kham=datetime.time(9, 0),
+        )
+        other_hospital = BenhVien.objects.create(
+            ten="BV Chuyen Bac Si", dia_chi="2 Duong Test", phuong="Quan 2",
+            vi_tri=Point(106.8, 10.78, srid=4326), gio_mo=datetime.time(7), gio_dong=datetime.time(17), loai_hinh="cong",
+        )
+        other_department = Khoa.objects.create(ten="Khoa chuyen", benh_vien=other_hospital)
+        self.doctor.benh_vien = other_hospital
+        self.doctor.khoa = other_department
+        with self.assertRaises(ValidationError):
+            self.doctor.full_clean()
+
+    def test_staff_with_branch_manager_profile_cannot_use_global_admin_crud(self):
+        hybrid = User.objects.create_user("hybrid_manager", password="pass12345", is_staff=True)
+        QuanLyChiNhanh.objects.create(user=hybrid, benh_vien=self.hospital)
+        self.client.force_login(hybrid)
+        routes = [
+            reverse("custom_admin_dashboard"),
+            reverse("custom_admin_model_list", args=["benh-vien"]),
+            reverse("custom_admin_model_create", args=["benh-vien"]),
+            reverse("custom_admin_model_edit", args=["benh-vien", self.hospital.pk]),
+            reverse("custom_admin_model_delete", args=["benh-vien", self.hospital.pk]),
+        ]
+        for url in routes:
+            response = self.client.get(url)
+            self.assertRedirects(response, reverse("home"))
+        self.assertEqual(self.client.get(reverse("custom_admin_departments_api")).status_code, 403)
 
     def test_django_admin_url_disabled(self):
         response = self.client.get("/admin/")

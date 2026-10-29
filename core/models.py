@@ -476,7 +476,7 @@ class Khoa(models.Model):
     ten = models.CharField(max_length=200, db_index=True, validators=[name_validator])
     benh_vien = models.ForeignKey(
         BenhVien,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='khoas',
         db_index=True
     )
@@ -496,7 +496,7 @@ class Khoa(models.Model):
 class BacSi(models.Model):
     user = models.OneToOneField(
         User,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='bac_si',
         null=True,
         blank=True
@@ -505,12 +505,12 @@ class BacSi(models.Model):
     chuyen_khoa = models.CharField(max_length=200, db_index=True)
     khoa = models.ForeignKey(
         Khoa,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='bac_sis'
     )
     benh_vien = models.ForeignKey(
         BenhVien,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='bac_sis'
     )
     so_dien_thoai = models.CharField(max_length=15, validators=[phone_validator], unique=True)
@@ -527,12 +527,27 @@ class BacSi(models.Model):
 
     def clean(self):
         super().clean()
+        if self.pk:
+            previous_hospital_id = type(self).objects.filter(pk=self.pk).values_list('benh_vien_id', flat=True).first()
+            if previous_hospital_id and previous_hospital_id != self.benh_vien_id and LichKham.objects.filter(bac_si_id=self.pk).exists():
+                raise ValidationError({
+                    "benh_vien": "Không thể chuyển bác sĩ sang bệnh viện khác vì đã có lịch khám/hóa đơn lịch sử.",
+                })
         if self.khoa_id and self.benh_vien_id:
             if self.khoa.benh_vien_id != self.benh_vien_id:
                 raise ValidationError({
                     "khoa": "Khoa không thuộc bệnh viện đã chọn.",
                     "benh_vien": "Bệnh viện không khớp với khoa."
                 })
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            previous_hospital_id = type(self).objects.filter(pk=self.pk).values_list('benh_vien_id', flat=True).first()
+            if previous_hospital_id and previous_hospital_id != self.benh_vien_id and LichKham.objects.filter(bac_si_id=self.pk).exists():
+                raise ValidationError({
+                    "benh_vien": "Không thể chuyển bác sĩ sang bệnh viện khác vì đã có lịch khám/hóa đơn lịch sử.",
+                })
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.ho_ten
@@ -669,12 +684,12 @@ class BenhNhan(models.Model):
 class LichKham(models.Model):
     benh_nhan = models.ForeignKey(
         BenhNhan,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='lich_khams'
     )
     bac_si = models.ForeignKey(
         BacSi,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='lich_khams'
     )
     ngay_kham = models.DateField(db_index=True)
@@ -783,12 +798,12 @@ class LichKham(models.Model):
 class PhieuKham(models.Model):
     benh_nhan = models.ForeignKey(
         BenhNhan,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='phieu_khams'
     )
     lich_kham = models.OneToOneField(
         LichKham,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='phieu_kham'
     )
     trieu_chung = models.TextField()
@@ -819,7 +834,8 @@ class DichVuThucHien(models.Model):
     dich_vu = models.ForeignKey(DanhMucDichVu, on_delete=models.PROTECT, related_name='lan_thuc_hien')
     so_luong = models.PositiveIntegerField('Số lượng', default=1, validators=[MinValueValidator(1)])
     ghi_chu = models.TextField('Ghi chú', blank=True, default='', max_length=2000)
-    nguoi_thuc_hien = models.ForeignKey(BacSi, on_delete=models.PROTECT, related_name='dich_vu_da_thuc_hien')
+    nguoi_thuc_hien = models.ForeignKey(BacSi, on_delete=models.PROTECT, related_name='dich_vu_da_thuc_hien', verbose_name='Bác sĩ thực hiện')
+    nguoi_ghi_nhan = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+', verbose_name='Người ghi nhận tại quầy')
     thoi_gian_tao = models.DateTimeField(auto_now_add=True)
     thoi_gian_cap_nhat = models.DateTimeField(auto_now=True)
     da_huy = models.BooleanField(default=False)
@@ -880,7 +896,7 @@ class PhieuKhamHinhAnh(models.Model):
 class LichSuKhamBenh(models.Model):
     benh_nhan = models.ForeignKey(
         BenhNhan,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='lich_su_khams',
         db_index=True
     )
@@ -898,7 +914,7 @@ class LichSuKhamBenh(models.Model):
     )
     phieu_kham = models.ForeignKey(
         PhieuKham,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='lich_sus',
         null=True,
         blank=True
@@ -940,7 +956,7 @@ class LichSuKhamBenh(models.Model):
 class LogLichKham(models.Model):
     lich_kham = models.ForeignKey(
         LichKham,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name='logs'
     )
     hanh_dong = models.CharField(

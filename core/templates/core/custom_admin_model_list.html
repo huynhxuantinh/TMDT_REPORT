@@ -127,11 +127,10 @@
                                         <td>{{ value }}</td>
                                     {% endfor %}
                                     <td>
-                                        <a class="btn" href="{% url 'custom_admin_model_edit' model_key row.id %}">S&#7917;a</a>
-                                        <form class="inline-form" method="post" action="{% url 'custom_admin_model_delete' model_key row.id %}" onsubmit="return confirm('X&#243;a b&#7843;n ghi n&#224;y?')">
-                                            {% csrf_token %}
-                                            <button class="btn danger" type="submit">X&#243;a</button>
-                                        </form>
+                                        {% if row.can_manage %}
+                                            <a class="btn" href="{% url 'custom_admin_model_edit' model_key row.id %}">S&#7917;a</a>
+                                            <a class="btn danger" href="{% url 'custom_admin_model_delete' model_key row.id %}">X&#243;a</a>
+                                        {% else %}<span>Đã khóa</span>{% endif %}
                                     </td>
                                 </tr>
                             {% empty %}

@@ -18,7 +18,7 @@ from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, o
 from django.urls import reverse
 from django.utils import timezone
 
-from core.models import BacSi, BenhNhan, BenhVien, DanhMucDichVu, DichVuThucHien, GiaoDichThanhToan, HoaDon, Khoa, LichKham, PhieuKham
+from core.models import BacSi, BenhNhan, BenhVien, DanhMucDichVu, DichVuThucHien, GiaoDichThanhToan, HoaDon, Khoa, LichKham, LogHeThong, PhieuKham
 from core.payments import services, vnpay
 
 
@@ -284,14 +284,28 @@ class VnpayPaymentTests(TestCase):
             self.start()
         self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '00')
 
-    def test_missing_ipn_and_local_expiry_never_unlock_charge(self):
+    def test_missing_ipn_and_local_expiry_unlocks_charge_with_audit_log(self):
         attempt = self.start()
         GiaoDichThanhToan.objects.filter(pk=attempt.pk).update(het_han_luc=timezone.now() - datetime.timedelta(hours=1))
         self.assert_unpaid()
-        with self.assertRaises(vnpay.PaymentError):
-            self.start()
-        self.assertEqual(GiaoDichThanhToan.objects.count(), 1)
-        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '00')
+        self.assertIsNotNone(services.expire_pending_payment(attempt.pk))
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'expired')
+        self.assertIsNotNone(attempt.hoan_tat_luc)
+        self.assertTrue(LogHeThong.objects.filter(model_name='GiaoDichThanhToan', object_id=attempt.pk).exists())
+        self.assertEqual(self.start().trang_thai, 'pending')
+
+    def test_admin_can_close_reconciliation_after_checking_vnpay(self):
+        attempt = self.start()
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        response = self.client.post(reverse('cashier_monitor_reconcile_close', args=[self.invoice.pk]))
+        self.assertRedirects(response, reverse('cashier_monitor_detail', args=[self.appointment.pk]))
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'expired')
+        self.assertFalse(self.invoice.can_doi_soat)
+        self.assertTrue(LogHeThong.objects.filter(model_name='HoaDon', object_id=self.invoice.pk,
+                                                  ghi_chu__contains='ket thuc doi soat').exists())
 
     def test_conflicting_callback_does_not_overwrite_terminal_status(self):
         attempt = self.start()

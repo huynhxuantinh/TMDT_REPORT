@@ -234,16 +234,16 @@ class InsuranceBillingTests(InsuranceFixtures, TestCase):
         self.assertEqual((invoice.so_tien, invoice.trang_thai, invoice.hoan_tat_bhyt, invoice.phien_ban), (0, 'paid', True, 2))
         self.assertFalse(GiaoDichThanhToan.objects.exists())
 
-    def test_pending_attempt_blocks_revision_to_zero_even_if_expired_locally(self):
+    def test_pending_attempt_expired_locally_allows_revision_to_zero(self):
         self.card()
         rule = self.rule('80')
         invoice = self.invoice()
         attempt, _ = start_payment(invoice.pk, self.admin, '127.0.0.1')
         GiaoDichThanhToan.objects.filter(pk=attempt.pk).update(het_han_luc=timezone.now())
         save_rule(rule_data(self.service, self.date, '100'), self.admin, rule.pk)
-        self.assertContains(self.edit([(self.service, 2, '')]), 'VNPAY đang xử lý')
+        self.assertEqual(self.edit([(self.service, 2, '')]).status_code, 302)
         invoice.refresh_from_db()
-        self.assertEqual((invoice.so_tien, invoice.hoan_tat_bhyt, invoice.phien_ban), (20000, False, 1))
+        self.assertEqual((invoice.so_tien, invoice.hoan_tat_bhyt, invoice.phien_ban), (0, True, 2))
 
     def test_reconciliation_blocks_revision_to_zero(self):
         self.card()

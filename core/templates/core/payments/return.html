@@ -1,7 +1,7 @@
 {% extends 'core/payments/base.html' %}
 {% block content %}
 <section>
-    <h1>Kết quả thanh toán thử nghiệm</h1>
+    <h1>Kết quả thanh toán</h1>
     {% if error %}<p class="notice">{{ error }}</p>{% else %}
         <p>Mã tham chiếu: <code>{{ attempt.ma_tham_chieu }}</code></p>
         {% if attempt.hoa_don.can_doi_soat %}

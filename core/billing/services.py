@@ -24,7 +24,9 @@ def invoice_lock_reason(invoice):
         if invoice.hoan_tat_bhyt:
             return 'Hóa đơn đã hoàn tất nhờ BHYT MÔ PHỎNG, bệnh nhân trả 0đ. Dịch vụ và chi phí đã khóa.'
         return 'Hóa đơn đã thanh toán. Dịch vụ và chi phí đã khóa.'
-    if invoice.giao_dichs.exclude(trang_thai__in=['failed', 'cancelled', 'expired']).exists():
+    if invoice.giao_dichs.exclude(trang_thai__in=['failed', 'cancelled', 'expired']).exclude(
+        trang_thai='pending', het_han_luc__lte=timezone.now(),
+    ).exists():
         return 'VNPAY đang xử lý, chưa xác định kết quả hoặc đã thành công. Chưa được điều chỉnh dịch vụ.'
     return ''
 
@@ -86,6 +88,9 @@ def bill_exam(phieu_id, user, *, recalculate=False, remote_addr=''):
     if appointment.trang_thai != 'xong':
         raise BillingError('Chỉ lập hóa đơn sau khi hoàn tất khám.')
     invoice = HoaDon.objects.select_for_update().filter(lich_kham=appointment).first()
+    if invoice:
+        from core.payments.services import _expire_pending_locked
+        _expire_pending_locked(invoice, actor=user)
     if invoice and not recalculate:
         return invoice
     if invoice:

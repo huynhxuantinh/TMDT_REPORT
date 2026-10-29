@@ -56,7 +56,8 @@ class PatientAuthRegressions(TestCase):
         response = self.client.post(reverse('login'), {'username': user.username, 'password': self.password})
         self.assertEqual(response.status_code, 302)
         self.assertEqual(int(self.client.session['_auth_user_id']), user.pk)
-        self.client.get(reverse('logout'))
+        self.assertEqual(self.client.get(reverse('logout')).status_code, 405)
+        self.client.post(reverse('logout'))
         self.assertNotIn('_auth_user_id', self.client.session)
 
     def test_linked_patient_is_found_when_username_differs_from_phone(self):

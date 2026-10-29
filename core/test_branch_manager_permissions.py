@@ -39,7 +39,9 @@ class BranchManagerPermissionsTests(TestCase):
         context, data = self.service_form()
         response = self.client.post(reverse('payment_services_save', args=[self.appointment.pk]), data)
         self.assertRedirects(response, reverse('payment_detail', args=[self.appointment.pk]))
-        self.assertTrue(DichVuThucHien.objects.filter(phieu_kham=self.phieu, dich_vu=self.service).exists())
+        row = DichVuThucHien.objects.get(phieu_kham=self.phieu, dich_vu=self.service)
+        self.assertEqual(row.nguoi_thuc_hien_id, self.appointment.bac_si_id)
+        self.assertEqual(row.nguoi_ghi_nhan_id, self.manager.pk)
         self.assertTrue(hasattr(self.appointment, 'hoa_don'))
 
     def test_manager_cannot_edit_unfinished_or_other_hospital(self):
@@ -71,3 +73,13 @@ class BranchManagerPermissionsTests(TestCase):
         self.client.force_login(monitor)
         _, data = self.service_form()
         self.assertEqual(self.client.post(reverse('payment_services_save', args=[self.appointment.pk]), data).status_code, 403)
+
+    @override_settings(DEBUG=False)
+    def test_manager_payment_page_hides_technical_configuration_and_has_post_logout(self):
+        self.client.force_login(self.manager)
+        response = self.client.get(reverse('payment_detail', args=[self.appointment.pk]))
+        self.assertContains(response, self.manager.username)
+        self.assertContains(response, 'action="/logout/"')
+        self.assertNotContains(response, 'ngrok')
+        self.assertNotContains(response, 'VNPAY SIT Testing')
+        self.assertNotContains(response, 'Mailtrap')

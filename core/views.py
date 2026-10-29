@@ -13,11 +13,13 @@ from django.conf import settings
 from django.core.cache import cache
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import validate_email
 from django.forms import modelform_factory
 from django.http import Http404, JsonResponse
 from django.db import IntegrityError, transaction
+from django.views.decorators.http import require_POST
+from django.db.models.deletion import ProtectedError
 from django.db.models import Max, Q
 from django.db import models as db_models
 from django.contrib.gis.geos import Point
@@ -35,6 +37,7 @@ from .models import (
     LichKham,
     LichSuKhamBenh,
     PhieuKham,
+    DichVuThucHien,
     PhieuKhamHinhAnh,
     LogLichKham,
     LogHeThong,
@@ -52,6 +55,7 @@ from .forms import (
     DatLichForm,
 )
 from .billing.services import billing_context as exam_billing_context
+from .payments.access import can_admin
 
 
 # ==========================
@@ -987,7 +991,7 @@ def user_login(request):
 # ==========================
 @login_required
 def custom_admin_dashboard(request):
-    if not (request.user.is_superuser or request.user.is_staff):
+    if not can_admin(request.user):
         return redirect("home")
 
     status_counts = {
@@ -1160,9 +1164,55 @@ ADMIN_MODEL_CONFIG = {
 
 
 def _admin_access_or_redirect(request):
-    if not (request.user.is_superuser or request.user.is_staff):
+    if not can_admin(request.user):
         return redirect("home")
     return None
+
+
+def _require_account_superuser(request, target=None, *, deleting=False):
+    """The custom account directory is reserved for superusers only."""
+    if not request.user.is_superuser:
+        raise PermissionDenied('Chỉ superuser được quản trị tài khoản.')
+    if target and target.is_superuser:
+        raise PermissionDenied('Không được sửa hoặc xóa tài khoản superuser qua màn hình này.')
+    if deleting and target and target.pk == request.user.pk:
+        raise PermissionDenied('Không được tự xóa tài khoản đang đăng nhập.')
+
+
+def _delete_impact(model_key, obj):
+    """Counts records that must be preserved before a destructive admin action."""
+    if model_key == 'benh-vien':
+        return [
+            ('Khoa', Khoa.objects.filter(benh_vien=obj).count()),
+            ('Bác sĩ', BacSi.objects.filter(benh_vien=obj).count()),
+            ('Lịch khám', LichKham.objects.filter(bac_si__benh_vien=obj).count()),
+            ('Phiếu khám', PhieuKham.objects.filter(lich_kham__bac_si__benh_vien=obj).count()),
+            ('Ảnh bệnh viện', BenhVienHinhAnh.objects.filter(benh_vien=obj).count()),
+        ]
+    if model_key == 'khoa':
+        return [
+            ('Bác sĩ', BacSi.objects.filter(khoa=obj).count()),
+            ('Lịch khám', LichKham.objects.filter(bac_si__khoa=obj).count()),
+            ('Phiếu khám', PhieuKham.objects.filter(lich_kham__bac_si__khoa=obj).count()),
+        ]
+    if model_key == 'bac-si':
+        return [
+            ('Lịch khám', LichKham.objects.filter(bac_si=obj).count()),
+            ('Phiếu khám', PhieuKham.objects.filter(lich_kham__bac_si=obj).count()),
+            ('Lịch làm việc', GioLamViecBacSi.objects.filter(bac_si=obj).count()),
+        ]
+    if model_key == 'tai-khoan':
+        doctor = BacSi.objects.filter(user=obj)
+        return [
+            ('Hồ sơ bác sĩ', doctor.count()),
+            ('Lịch khám', LichKham.objects.filter(bac_si__user=obj).count()),
+            ('Phiếu khám', PhieuKham.objects.filter(lich_kham__bac_si__user=obj).count()),
+        ]
+    if model_key == 'lich-kham':
+        return [('Phiếu khám', PhieuKham.objects.filter(lich_kham=obj).count()), ('Nhật ký lịch khám', LogLichKham.objects.filter(lich_kham=obj).count())]
+    if model_key == 'phieu-kham':
+        return [('Dịch vụ thực hiện', DichVuThucHien.objects.filter(phieu_kham=obj).count()), ('Ảnh phiếu khám', PhieuKhamHinhAnh.objects.filter(phieu_kham=obj).count())]
+    return []
 
 
 def _get_admin_config(model_key):
@@ -1580,6 +1630,8 @@ def custom_admin_model_list(request, model_key):
         return denied
 
     config = _get_admin_config(model_key)
+    if model_key == 'tai-khoan':
+        _require_account_superuser(request)
     model = config["model"]
     queryset = model.objects.all()
 
@@ -1607,6 +1659,7 @@ def custom_admin_model_list(request, model_key):
         {
             "id": obj.pk,
             "values": [_list_column_value(obj, col) for col in list_display],
+            "can_manage": not (model_key == 'tai-khoan' and obj.is_superuser),
         }
         for obj in page_obj.object_list
     ]
@@ -1635,6 +1688,8 @@ def custom_admin_model_create(request, model_key):
     if denied:
         return denied
     config = _get_admin_config(model_key)
+    if model_key == 'tai-khoan':
+        _require_account_superuser(request)
     form_class = _get_admin_form_class(config)
     is_hospital = model_key == "benh-vien"
     is_exam_record = model_key == "phieu-kham"
@@ -1701,6 +1756,8 @@ def custom_admin_model_edit(request, model_key, pk):
     config = _get_admin_config(model_key)
     model = config["model"]
     obj = get_object_or_404(model, pk=pk)
+    if model_key == 'tai-khoan':
+        _require_account_superuser(request, obj)
     form_class = _get_admin_form_class(config)
     is_hospital = model_key == "benh-vien"
     is_exam_record = model_key == "phieu-kham"
@@ -1791,15 +1848,25 @@ def custom_admin_model_delete(request, model_key, pk):
     denied = _admin_access_or_redirect(request)
     if denied:
         return denied
-    if request.method != "POST":
-        return redirect("custom_admin_model_list", model_key=model_key)
     config = _get_admin_config(model_key)
     obj = get_object_or_404(config["model"], pk=pk)
+    if model_key == 'tai-khoan':
+        _require_account_superuser(request, obj, deleting=True)
     try:
+        impact = [(label, count) for label, count in _delete_impact(model_key, obj) if count]
+        if request.method != "POST":
+            return render(request, "core/custom_admin_delete_confirm.html", {
+                "title": f"Xóa {config['title'].lower()}", "model_key": model_key,
+                "object_name": str(obj), "impact": impact,
+                "can_delete": not impact,
+                "back_href": f"/quan-tri/du-lieu/{model_key}/",
+            })
         obj.delete()
         messages.success(request, f"Đã xóa {config['title'].lower()}.")
+    except ProtectedError:
+        messages.error(request, "Không thể xóa vì bản ghi đang có dữ liệu liên quan cần được lưu giữ.")
     except Exception as exc:
-        messages.error(request, f"Không thể xóa: {exc}")
+        messages.error(request, "Không thể xóa bản ghi này.")
     return redirect("custom_admin_model_list", model_key=model_key)
 
 
@@ -1865,7 +1932,7 @@ def custom_admin_doctor_delete(request, pk):
 
 @login_required
 def custom_admin_departments_api(request):
-    if not (request.user.is_superuser or request.user.is_staff):
+    if not can_admin(request.user):
         return JsonResponse({"results": []}, status=403)
 
     benh_vien_id = (request.GET.get("benh_vien_id") or "").strip()
@@ -1880,6 +1947,7 @@ def custom_admin_departments_api(request):
     return JsonResponse({"results": list(departments)})
 
 
+@require_POST
 def user_logout(request):
 
     logout(request)

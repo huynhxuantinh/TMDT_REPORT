@@ -1,0 +1,7 @@
+<!DOCTYPE html>
+<html lang="vi"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>{{ title }}</title>
+<style>body{font-family:Segoe UI,Arial,sans-serif;background:#f2f6f5;color:#1f2a27}.card{max-width:650px;margin:64px auto;background:#fff;border:1px solid #d8e5df;border-radius:12px;padding:24px}.notice{background:#fff4e5;border:1px solid #edcf9a;padding:12px;border-radius:8px}.btn{display:inline-block;padding:9px 13px;border:1px solid #d0ddd8;border-radius:999px;text-decoration:none;color:#0f7d69;background:#fff}.danger{background:#8b2f2f;color:#fff;border-color:#8b2f2f}</style></head>
+<body><main class="card"><h1>{{ title }}</h1><p>Bản ghi: <strong>{{ object_name }}</strong></p>
+{% if impact %}<div class="notice"><strong>Không thể xóa.</strong> Thao tác sẽ ảnh hưởng dữ liệu cần lưu giữ:</div><ul>{% for label,count in impact %}<li>{{ label }}: {{ count }}</li>{% endfor %}</ul><p>Hãy ngừng sử dụng hoặc hủy lịch liên quan, không xóa dữ liệu y tế.</p>
+{% else %}<p class="notice">Không phát hiện dữ liệu y tế liên quan. Xóa là thao tác không thể hoàn tác.</p>{% endif %}
+{% if can_delete %}<form method="post">{% csrf_token %}<button class="btn danger" type="submit">Xác nhận xóa</button></form>{% endif %}<p><a class="btn" href="{{ back_href }}">Quay lại</a></p></main></body></html>

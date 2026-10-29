@@ -9,7 +9,7 @@ from django.db.models import Q
 from core.models import DanhMucDichVu, DichVuThucHien, HoaDon, LichKham, LogHeThong, PhieuKham
 from core.billing.services import BillingError, bill_exam, billing_context, invoice_lock_reason, is_consultation
 from core.payments.access import can_collect, require_scope
-from core.payments.services import require_completed
+from core.payments.services import _expire_pending_locked, require_completed
 from .forms import PerformedServiceFormSet
 
 
@@ -65,7 +65,8 @@ def audit_line(row, action, user, before_quantity=None, remote_addr='', note_cha
     except ValueError:
         address = None
     identifiers = {'phieu_kham_id': row.phieu_kham_id, 'dich_vu_id': row.dich_vu_id,
-                   'ma_dich_vu': row.dich_vu.ma_dich_vu, 'bac_si_id': row.nguoi_thuc_hien_id}
+                   'ma_dich_vu': row.dich_vu.ma_dich_vu, 'bac_si_id': row.nguoi_thuc_hien_id,
+                   'nguoi_ghi_nhan_id': row.nguoi_ghi_nhan_id}
     LogHeThong.objects.create(
         model_name='DichVuThucHien', object_id=row.pk, hanh_dong=action,
         du_lieu_cu={**identifiers, 'so_luong': before_quantity} if action != 'create' else None,
@@ -84,7 +85,9 @@ def sync_services(phieu, user, formset, submitted_revision, remote_addr=''):
         raise PermissionDenied('Chỉ quản lý chi nhánh hoặc tài khoản có quyền thu tiền được ghi nhận dịch vụ.')
     require_scope(user, appointment)
     # Serialize with IPN too: IPN locks invoice before checking/setting its state.
-    HoaDon.objects.select_for_update().filter(lich_kham=appointment).first()
+    invoice = HoaDon.objects.select_for_update().filter(lich_kham=appointment).first()
+    if invoice:
+        _expire_pending_locked(invoice, actor=user)
     phieu = PhieuKham.objects.select_for_update().get(pk=phieu.pk, lich_kham=appointment)
     current = list(DichVuThucHien.objects.select_for_update().filter(phieu_kham=phieu, da_huy=False).order_by('pk'))
     if submitted_revision != revision(current):
@@ -123,7 +126,8 @@ def sync_services(phieu, user, formset, submitted_revision, remote_addr=''):
     for key in sorted(desired.keys() - before.keys()):
         quantity, note = desired[key]
         row = DichVuThucHien(phieu_kham=phieu, dich_vu=catalog[key], so_luong=quantity,
-                            ghi_chu=note, nguoi_thuc_hien_id=appointment.bac_si_id)
+                            ghi_chu=note, nguoi_thuc_hien_id=appointment.bac_si_id,
+                            nguoi_ghi_nhan_id=user.pk)
         row.full_clean()
         row.save()
         audit_line(row, 'create', user, remote_addr=remote_addr)

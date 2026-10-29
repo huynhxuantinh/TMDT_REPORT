@@ -4,11 +4,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Thanh toán VNPAY Sandbox{% endblock %} · MedCare GIS</title>
+    <title>{% block title %}Thanh toán{% endblock %} · MedCare GIS</title>
     <link rel="stylesheet" href="{% static 'core/css/operations.css' %}">
 </head>
 <body class="operations-page payments-page"><main class="page">
-    <header class="card page-header"><strong>MedCare GIS · VNPAY Sandbox</strong><p class="muted">Thanh toán thử nghiệm sau khám tại quầy</p></header>
+    <header class="card page-header"><strong>MedCare GIS · Thanh toán</strong><p class="muted">Thanh toán sau khám tại quầy</p>{% if user.is_authenticated %}<p class="muted">{{ user.username }}</p><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="btn secondary">Đăng xuất</button></form>{% endif %}</header>
     {% for message in messages %}<p role="status" class="notice {{ message.tags }}">{{ message }}</p>{% endfor %}
     {% block content %}{% endblock %}
 </main></body>

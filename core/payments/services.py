@@ -4,12 +4,91 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.conf import settings
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.utils import timezone
 
 from core.models import GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
 from . import vnpay
 from .access import can_collect, manager_profile, require_scope
+
+
+def _expire_pending_locked(invoice, *, now=None, actor=None, note=''):
+    """Expire one overdue VNPAY attempt while its invoice is already locked."""
+    now = now or timezone.now()
+    attempt = GiaoDichThanhToan.objects.select_for_update().filter(
+        hoa_don=invoice, phuong_thuc='VNPAY', trang_thai='pending', het_han_luc__lte=now,
+    ).first()
+    if attempt is None:
+        return None
+    before = {'trang_thai': attempt.trang_thai, 'het_han_luc': attempt.het_han_luc.isoformat()}
+    attempt.trang_thai = GiaoDichThanhToan.TrangThai.HET_HAN
+    attempt.hoan_tat_luc = now
+    attempt.save(update_fields=['trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
+    LogHeThong.objects.create(
+        model_name='GiaoDichThanhToan', object_id=attempt.pk, hanh_dong='update',
+        du_lieu_cu=before,
+        du_lieu_moi={'trang_thai': attempt.trang_thai, 'hoan_tat_luc': now.isoformat()},
+        nguoi_thuc_hien=actor,
+        ghi_chu=note or 'Tu dong het han vi khong nhan duoc IPN truoc thoi diem het han.',
+    )
+    return attempt
+
+
+@transaction.atomic
+def expire_pending_payment(payment_id, *, now=None, actor=None):
+    """Durably expire an overdue VNPAY attempt; safe for commands and retries."""
+    invoice_id = GiaoDichThanhToan.objects.values_list('hoa_don_id', flat=True).get(pk=payment_id)
+    invoice = HoaDon.objects.select_for_update().get(pk=invoice_id)
+    return _expire_pending_locked(invoice, now=now, actor=actor)
+
+
+def expire_due_payments(*, now=None):
+    """Expire all due attempts one invoice at a time, avoiding long table locks."""
+    now = now or timezone.now()
+    payment_ids = list(GiaoDichThanhToan.objects.filter(
+        phuong_thuc='VNPAY', trang_thai='pending', het_han_luc__lte=now,
+    ).values_list('pk', flat=True))
+    return sum(expire_pending_payment(payment_id, now=now) is not None for payment_id in payment_ids)
+
+
+@transaction.atomic
+def resolve_reconciliation(invoice_id, user):
+    """Admin-only closure after independently checking that no VNPAY payment succeeded."""
+    from .access import can_admin
+
+    if not can_admin(user):
+        raise PermissionDenied('Chi Admin giam sat moi duoc ket thuc doi soat VNPAY.')
+    appointment_id = HoaDon.objects.values_list('lich_kham_id', flat=True).get(pk=invoice_id)
+    LichKham.objects.select_for_update().get(pk=appointment_id)
+    invoice = HoaDon.objects.select_for_update().get(pk=invoice_id)
+    if not invoice.can_doi_soat:
+        raise vnpay.PaymentError('Hoa don nay khong o trang thai can doi soat.')
+    if invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN:
+        raise vnpay.PaymentError('Hoa don da thanh toan, khong the mo khoa thu cong.')
+    for attempt in GiaoDichThanhToan.objects.select_for_update().filter(
+        hoa_don=invoice, phuong_thuc='VNPAY', trang_thai='pending',
+    ):
+        before = {'trang_thai': attempt.trang_thai}
+        attempt.trang_thai = GiaoDichThanhToan.TrangThai.HET_HAN
+        attempt.hoan_tat_luc = timezone.now()
+        attempt.save(update_fields=['trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
+        LogHeThong.objects.create(
+            model_name='GiaoDichThanhToan', object_id=attempt.pk, hanh_dong='update',
+            du_lieu_cu=before,
+            du_lieu_moi={'trang_thai': attempt.trang_thai, 'hoan_tat_luc': attempt.hoan_tat_luc.isoformat()},
+            nguoi_thuc_hien=user,
+            ghi_chu='Admin ket thuc doi soat sau khi xac nhan khong co giao dich VNPAY thanh cong.',
+        )
+    invoice.can_doi_soat = False
+    invoice.save(update_fields=['can_doi_soat', 'ngay_cap_nhat'])
+    LogHeThong.objects.create(
+        model_name='HoaDon', object_id=invoice.pk, hanh_dong='update',
+        du_lieu_cu={'can_doi_soat': True}, du_lieu_moi={'can_doi_soat': False},
+        nguoi_thuc_hien=user,
+        ghi_chu='Admin ket thuc doi soat VNPAY sau khi kiem tra khong co giao dich thanh cong.',
+    )
+    return invoice
 
 
 def require_completed(appointment):
@@ -50,6 +129,7 @@ def start_payment(invoice_id, user, ip_address):
     require_scope(user, appointment)
     require_completed(appointment)
     invoice = HoaDon.objects.select_for_update().get(pk=invoice_id)
+    _expire_pending_locked(invoice, actor=user)
     from core.billing.services import payable_error
     amount_error = payable_error(invoice)
     if amount_error:
@@ -84,6 +164,7 @@ def collect_cash(invoice_id, user, *, expected_version):
     require_scope(user, appointment)
     require_completed(appointment)
     invoice = HoaDon.objects.select_for_update().get(pk=invoice_id)
+    _expire_pending_locked(invoice, actor=user)
     if invoice.so_tien <= 0 or invoice.hoan_tat_bhyt:
         raise vnpay.PaymentError('Hóa đơn 0đ đã hoàn tất bằng BHYT MÔ PHỎNG; không thu tiền.')
     if invoice.trang_thai == 'paid':

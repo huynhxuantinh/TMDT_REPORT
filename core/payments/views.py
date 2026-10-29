@@ -2,12 +2,14 @@ from functools import wraps
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.paginator import Paginator
 from django.db import DatabaseError
 from django.db.models import Q, Exists, OuterRef
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
@@ -31,6 +33,16 @@ def collector_required(view):
             allowed = services.can_collect(request.user)
         if not allowed:
             raise PermissionDenied('Cần quyền thu tiền tại quầy hoặc quyền Admin giám sát.')
+        return view(request, *args, **kwargs)
+    return wrapped
+
+
+def admin_required(view):
+    @login_required
+    @wraps(view)
+    def wrapped(request, *args, **kwargs):
+        if not can_admin(request.user):
+            raise PermissionDenied('Chi Admin giam sat moi duoc thuc hien thao tac nay.')
         return view(request, *args, **kwargs)
     return wrapped
 
@@ -65,7 +77,8 @@ def payment_list(request, monitor=False):
     page = Paginator(appointments, 30).get_page(request.GET.get('page'))
     return render(request, 'core/payments/list.html', {'page_obj': page, 'q': query, 'status': status,
         'profile': manager_profile(request.user), 'monitor': monitor,
-        'detail_route': 'cashier_monitor_detail' if monitor else 'payment_detail'})
+        'detail_route': 'cashier_monitor_detail' if monitor else 'payment_detail',
+        'show_technical': settings.DEBUG or can_admin(request.user)})
 
 
 @never_cache
@@ -81,7 +94,9 @@ def payment_detail(request, lich_id, monitor=False):
         completion_error = ''
     except vnpay.PaymentError as exc:
         completion_error = str(exc)
-    pending = any(attempt.trang_thai == 'pending' for attempt in attempts)
+    now = timezone.now()
+    pending = any(attempt.trang_thai == 'pending' and attempt.het_han_luc > now for attempt in attempts)
+    overdue_pending = any(attempt.trang_thai == 'pending' and attempt.het_han_luc <= now for attempt in attempts)
     config_error = vnpay.configuration_error()
     invoice_error = ''
     if invoice:
@@ -92,13 +107,15 @@ def payment_detail(request, lich_id, monitor=False):
     amount_error = payable_error(invoice) if invoice else ''
     email_row = EmailPhieuThanhToan.objects.filter(hoa_don=invoice).first() if invoice else None
     available = bool(invoice and invoice.trang_thai == 'unpaid' and not invoice.can_doi_soat
-                     and not any(a.trang_thai not in ['failed', 'cancelled', 'expired'] for a in attempts)
+                     and not any(a.trang_thai not in ['failed', 'cancelled', 'expired']
+                                 and not (a.trang_thai == 'pending' and a.het_han_luc <= now) for a in attempts)
                      and not completion_error and not invoice_error and not monitor)
     can_edit_services = bool(
         phieu and not monitor and services.can_collect(request.user)
         and (not invoice or not invoice_lock_reason(invoice))
     )
     service_context = exam_services_context(appointment, phieu) if can_edit_services else {}
+    show_technical = settings.DEBUG or can_admin(request.user)
     return render(request, 'core/payments/detail.html', {
         'receipt_email': email_row,
         'receipt_email_error': ERROR_MESSAGES.get(email_row.ma_loi, '') if email_row else '',
@@ -108,17 +125,19 @@ def payment_detail(request, lich_id, monitor=False):
         'detail_route': 'cashier_monitor_detail' if monitor else 'payment_detail',
         'can_cash': available and invoice.so_tien > 0 and not invoice.hoan_tat_bhyt,
         'lich': appointment, 'invoice': invoice, 'attempts': attempts,
-        'completion_error': completion_error, 'pending': pending, 'invoice_error': invoice_error,
+        'completion_error': completion_error, 'pending': pending, 'overdue_pending': overdue_pending, 'invoice_error': invoice_error,
         'amount_error': amount_error,
         'invoice_lines': list(invoice.chi_tiet_hien_hanh) if invoice else [],
         'invoice_logs': LogHeThong.objects.filter(model_name='HoaDon', object_id=invoice.pk).select_related('nguoi_thuc_hien') if invoice else [],
-        'config_error': '' if invoice and invoice.hoan_tat_bhyt else config_error,
+        'config_error': '' if invoice and invoice.hoan_tat_bhyt else (config_error if show_technical else ('Cổng thanh toán hiện chưa sẵn sàng. Vui lòng liên hệ Admin.' if config_error else '')),
         'can_start': available and not config_error and not amount_error,
         'can_edit_services': can_edit_services,
+        'can_resolve_reconciliation': bool(monitor and invoice and invoice.can_doi_soat and can_admin(request.user)),
+        'show_technical': show_technical,
         'service_phieu': phieu,
         **service_context,
-        'ipn_url': vnpay.callback_url('vnpay_ipn') if not config_error else '',
-        'return_url': vnpay.callback_url('vnpay_return') if not config_error else '',
+        'ipn_url': vnpay.callback_url('vnpay_ipn') if show_technical and not config_error else '',
+        'return_url': vnpay.callback_url('vnpay_return') if show_technical and not config_error else '',
     })
 
 
@@ -185,6 +204,19 @@ def payment_cash(request, invoice_id):
 
 
 @never_cache
+@admin_required
+@require_POST
+def reconciliation_close(request, invoice_id):
+    invoice = get_object_or_404(HoaDon, pk=invoice_id)
+    try:
+        services.resolve_reconciliation(invoice.pk, request.user)
+        messages.success(request, 'Da ket thuc doi soat va mo lai hoa don de thu tien.')
+    except vnpay.PaymentError as exc:
+        messages.error(request, str(exc))
+    return redirect('cashier_monitor_detail', lich_id=invoice.lich_kham_id)
+
+
+@never_cache
 @require_GET
 @sensitive_variables()
 def vnpay_ipn(request):
@@ -213,7 +245,8 @@ def vnpay_return(request):
         if attempt is None or services.validate_callback(params, attempt):
             raise vnpay.PaymentError('Invalid result')
         context = {'attempt': attempt, 'can_collect': services.can_collect(request.user)
-                   and scoped_appointments(request.user).filter(pk=attempt.hoa_don.lich_kham_id).exists()}
+                   and scoped_appointments(request.user).filter(pk=attempt.hoa_don.lich_kham_id).exists(),
+                   'show_technical': settings.DEBUG or can_admin(request.user)}
     except vnpay.PaymentError:
         context['error'] = 'Không xác minh được thông tin trả về. Vui lòng nhờ nhân viên kiểm tra hóa đơn.'
     return render(request, 'core/payments/return.html', context, status=400 if context.get('error') else 200)

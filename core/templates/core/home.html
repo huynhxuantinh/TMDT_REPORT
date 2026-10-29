@@ -327,7 +327,7 @@
                             <a class="btn ghost" href="{% url 'notifications' %}">Th&#244;ng b&#225;o{% if unread_count > 0 %}<span class="notif-badge">{{ unread_count }}</span>{% endif %}</a>
                             <a class="btn ghost" href="{% url 'contact_feedback' %}">Li&#234;n h&#7879; / G&#243;p &#253;</a>
                         {% endif %}
-                        <a class="btn primary" href="{% url 'logout' %}">&#272;&#259;ng xu&#7845;t</a>
+                        <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button class="btn primary" type="submit">&#272;&#259;ng xu&#7845;t</button></form>
                     </div>
                 {% else %}
                     <div class="user-actions">
