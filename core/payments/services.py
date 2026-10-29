@@ -9,7 +9,7 @@ from django.utils import timezone
 
 from core.models import GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
 from . import vnpay
-from .access import can_collect, cashier_profile, require_scope
+from .access import can_collect, manager_profile, require_scope
 
 
 def require_completed(appointment):
@@ -22,7 +22,7 @@ def require_completed(appointment):
 @transaction.atomic
 def create_invoice(appointment_id, amount, user):
     """Legacy invoice constructor retained for regression fixtures, not exposed by current views."""
-    if not can_collect(user) or cashier_profile(user):
+    if not can_collect(user) or manager_profile(user):
         raise vnpay.PaymentError('Tài khoản chưa được cấp quyền thu tiền tại quầy.')
     appointment = LichKham.objects.select_for_update().get(pk=appointment_id)
     require_scope(user, appointment)

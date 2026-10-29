@@ -4,17 +4,17 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import IntegrityError, transaction
 
 from core.models import DanhMucDichVu, LogHeThong
+from core.payments.access import can_collect
 from .forms import DichVuForm
 
 
 def can_manage(user):
-    # Same Admin role as the existing /quan-tri/ area.
-    return user.is_authenticated and user.is_active and (user.is_staff or user.is_superuser)
+    return can_collect(user)
 
 
 def require_admin(user):
     if not can_manage(user):
-        raise PermissionDenied('Chỉ Admin được quản lý danh mục dịch vụ và bảng giá.')
+        raise PermissionDenied('Chỉ quản lý chi nhánh hoặc tài khoản có quyền thu tiền mới được quản lý dịch vụ.')
 
 
 def snapshot(service):

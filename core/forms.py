@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth.models import User
 from django.contrib.gis.geos import Point
 
-from .models import BacSi, BenhVien, GioLamViecBacSi, Khoa, LichKham, ThuNgan
+from .models import BacSi, BenhVien, GioLamViecBacSi, Khoa, LichKham, QuanLyChiNhanh
 
 
 class DatLichForm(forms.ModelForm):
@@ -172,7 +172,7 @@ class AdminBacSiForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["khoa"].queryset = Khoa.objects.none()
         self.fields["user"].required = False
-        self.fields["user"].queryset = User.objects.filter(thu_ngan__isnull=True)
+        self.fields["user"].queryset = User.objects.filter(quan_ly_chi_nhanh__isnull=True)
         self.fields["user"].label = "Tài khoản liên kết (tùy chọn)"
 
         benh_vien_id = None
@@ -279,8 +279,8 @@ class AdminUserForm(forms.ModelForm):
         cleaned_data = super().clean()
         role = cleaned_data.get("role")
         current_user = self.instance if self.instance and self.instance.pk else None
-        if current_user and ThuNgan.objects.filter(user=current_user).exists():
-            raise forms.ValidationError('Tài khoản thu ngân: hãy sửa tại Quản lý thu ngân để giữ đúng phân công và quyền.')
+        if current_user and QuanLyChiNhanh.objects.filter(user=current_user).exists():
+            raise forms.ValidationError('Tài khoản quản lý chi nhánh: hãy sửa tại Quản lý thu ngân để giữ đúng phân công và quyền.')
         has_doctor_profile = bool(current_user and BacSi.objects.filter(user=current_user).exists())
 
         if role == self.ROLE_DOCTOR and not has_doctor_profile:

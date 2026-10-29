@@ -15,7 +15,7 @@ from django.views.decorators.http import require_GET, require_POST
 from core.models import EmailPhieuThanhToan, GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
 from core.billing.services import BillingError, bill_exam, validate_invoice_total, payable_error
 from . import services, vnpay
-from .access import can_admin, cashier_profile, scoped_appointments
+from .access import can_admin, manager_profile, scoped_appointments
 from core.receipts.delivery import ERROR_MESSAGES, eligible
 
 
@@ -61,7 +61,7 @@ def payment_list(request, monitor=False):
         appointments = appointments.filter(filters[status])
     page = Paginator(appointments, 30).get_page(request.GET.get('page'))
     return render(request, 'core/payments/list.html', {'page_obj': page, 'q': query, 'status': status,
-        'profile': cashier_profile(request.user), 'monitor': monitor,
+        'profile': manager_profile(request.user), 'monitor': monitor,
         'detail_route': 'cashier_monitor_detail' if monitor else 'payment_detail'})
 
 

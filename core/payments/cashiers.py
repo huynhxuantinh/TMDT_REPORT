@@ -14,7 +14,7 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_GET, require_http_methods
 
-from core.models import BenhVien, LogHeThong, ThuNgan
+from core.models import BenhVien, LogHeThong, QuanLyChiNhanh
 from .access import can_admin
 
 
@@ -63,7 +63,7 @@ def admin_required(view):
 @admin_required
 @require_GET
 def cashier_list(request):
-    rows = ThuNgan.objects.select_related('user', 'benh_vien').order_by('user__username')
+    rows = QuanLyChiNhanh.objects.select_related('user', 'benh_vien').order_by('user__username')
     return render(request, 'core/payments/cashiers.html', {'page_obj': Paginator(rows, 30).get_page(request.GET.get('page'))})
 
 
@@ -74,7 +74,7 @@ def cashier_list(request):
 @transaction.atomic
 def cashier_form(request, pk=None):
     # The same profile row is locked by collection; assignment cannot change mid-payment.
-    profile = get_object_or_404(ThuNgan.objects.select_for_update(), pk=pk) if pk else None
+    profile = get_object_or_404(QuanLyChiNhanh.objects.select_for_update(), pk=pk) if pk else None
     account = User.objects.select_for_update().get(pk=profile.user_id) if profile else User(is_active=True)
     form = CashierForm(request.POST if request.method == 'POST' else None, instance=account,
                        initial={'benh_vien': profile.benh_vien_id} if profile else None)
@@ -89,10 +89,10 @@ def cashier_form(request, pk=None):
             account.set_password(form.cleaned_data['password'])
         account.save()
         if profile is None:
-            profile = ThuNgan(user=account)
+            profile = QuanLyChiNhanh(user=account)
         profile.benh_vien = form.cleaned_data['benh_vien']
         profile.save()
-        LogHeThong.objects.create(model_name='ThuNgan', object_id=profile.pk,
+        LogHeThong.objects.create(model_name='QuanLyChiNhanh', object_id=profile.pk,
             hanh_dong='update' if before else 'create', nguoi_thuc_hien=request.user,
             du_lieu_cu=before, du_lieu_moi={'user_id': account.pk, 'benh_vien_id': profile.benh_vien_id,
                                           'is_active': account.is_active}, ghi_chu='Quản lý phân công thu ngân')

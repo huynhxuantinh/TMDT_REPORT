@@ -18,7 +18,7 @@ from django.utils import timezone
 
 from core.models import (BacSi, BenhNhan, BenhVien, DanhMucDichVu, EmailPhieuThanhToan,
                          GiaoDichThanhToan, GioLamViecBacSi, GioLamViecBenhVien,
-                         HoaDon, Khoa, LichKham, PhieuKham, QuyTacBHYT, ThuNgan)
+                         HoaDon, Khoa, LichKham, PhieuKham, QuyTacBHYT, QuanLyChiNhanh)
 from core.test_billing import callback
 from core.test_exam_services import payload
 from core.test_receipts import MAIL_SETTINGS, pdf_text
@@ -41,7 +41,7 @@ class WorkflowFixture:
         GioLamViecBacSi.objects.create(bac_si=self.doctor, thu=1, gio_bat_dau=datetime.time(7), gio_ket_thuc=datetime.time(17))
         GioLamViecBenhVien.objects.create(benh_vien=self.hospital, thu=1, gio_mo=datetime.time(7), gio_dong=datetime.time(17))
         self.cashier = User.objects.create_user('qaCashier123', password=self.password)
-        ThuNgan.objects.create(user=self.cashier, benh_vien=self.hospital)
+        QuanLyChiNhanh.objects.create(user=self.cashier, benh_vien=self.hospital)
         self.admin = User.objects.create_superuser('qaAdmin123', 'qa-admin@example.invalid', self.password)
         self.service = DanhMucDichVu.objects.create(ma_dich_vu='QA_KHAM', ten='Khám chuyên khoa QA',
             nhom='Khám', don_gia=Decimal('100000'))

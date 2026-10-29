@@ -280,19 +280,19 @@ class EmailPhieuThanhToan(models.Model):
         ]
 
 
-class ThuNgan(models.Model):
+class QuanLyChiNhanh(models.Model):
     """One existing auth identity, assigned to exactly one hospital."""
-    user = models.OneToOneField(User, on_delete=models.PROTECT, related_name='thu_ngan')
-    benh_vien = models.ForeignKey('BenhVien', on_delete=models.PROTECT, related_name='thu_ngans')
+    user = models.OneToOneField(User, on_delete=models.PROTECT, related_name='quan_ly_chi_nhanh')
+    benh_vien = models.ForeignKey('BenhVien', on_delete=models.PROTECT, related_name='quan_ly_chi_nhanhs')
     ngay_tao = models.DateTimeField(auto_now_add=True)
     ngay_cap_nhat = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = 'Thu ngân'
-        verbose_name_plural = 'Thu ngân'
+        verbose_name = 'Quản lý chi nhánh'
+        verbose_name_plural = 'Quản lý chi nhánh'
 
     def __str__(self):
-        return f'{self.user.username} · {self.benh_vien.ten}'
+        return f'{self.user.username} · Quản lý {self.benh_vien.ten}'
 
 
 # ========================= 
