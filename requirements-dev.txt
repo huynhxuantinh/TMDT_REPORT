@@ -1,0 +1,4 @@
+-r requirements.txt
+pypdf==6.21.4
+# Optional visual inspection of generated PDF artifacts.
+PyMuPDF==1.28.2

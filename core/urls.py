@@ -4,8 +4,13 @@ from .payments import views as payment_views
 from .payments import cashiers as cashier_views
 from .service_catalog import views as catalog_views
 from .insurance import views as insurance_views
+from .receipts import views as receipt_views
 
 urlpatterns = [
+    path('thanh-toan/hoa-don/<int:invoice_id>/phieu/xem/', receipt_views.receipt_pdf, name='receipt_view'),
+    path('thanh-toan/hoa-don/<int:invoice_id>/phieu/tai/', receipt_views.receipt_pdf, {'download': True}, name='receipt_download'),
+    path('thanh-toan/hoa-don/<int:invoice_id>/phieu/in/', receipt_views.receipt_print, name='receipt_print'),
+    path('thanh-toan/hoa-don/<int:invoice_id>/email/thu-lai/', receipt_views.receipt_retry, name='receipt_email_retry'),
     path('quan-tri/thu-ngan/', cashier_views.cashier_list, name='cashier_list'),
     path('quan-tri/thu-ngan/tao/', cashier_views.cashier_form, name='cashier_create'),
     path('quan-tri/thu-ngan/<int:pk>/sua/', cashier_views.cashier_form, name='cashier_edit'),

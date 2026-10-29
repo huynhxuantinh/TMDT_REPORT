@@ -1,0 +1,14 @@
+{% extends 'core/payments/base.html' %}
+{% block title %}In phiếu thanh toán #{{ invoice.pk }}{% endblock %}
+{% block content %}
+<section>
+    <h1>In phiếu thanh toán #{{ invoice.pk }}</h1>
+    <p>Phiếu thanh toán nội bộ, không phải hóa đơn điện tử có giá trị pháp lý.</p>
+    <p>Mở PDF rồi chọn biểu tượng máy in hoặc nhấn <strong>Ctrl+P</strong> trong trình xem PDF. Chọn giấy <strong>A4</strong>.</p>
+    <p><a class="btn" href="{% url 'receipt_view' invoice.pk %}" target="_blank" rel="noopener">Mở PDF để in</a>
+       <a href="{% url 'receipt_download' invoice.pk %}">Tải PDF về máy</a></p>
+    <object data="{% url 'receipt_view' invoice.pk %}" type="application/pdf" width="100%" height="750" aria-label="Phiếu thanh toán PDF">
+        <p>Trình duyệt chưa hiển thị PDF tại đây. Dùng nút mở PDF ở trên.</p>
+    </object>
+</section>
+{% endblock %}

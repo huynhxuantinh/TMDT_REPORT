@@ -115,6 +115,8 @@ def collect_cash(invoice_id, user, *, expected_version):
                      'benh_vien_id': payment.benh_vien_id, 'nguoi_xac_nhan_id': user.pk,
                      'ma_tham_chieu': payment.ma_tham_chieu, 'hoan_tat_luc': now.isoformat()},
     )
+    from core.receipts.delivery import schedule_confirmation
+    schedule_confirmation(invoice)
     return payment
 
 
@@ -178,4 +180,6 @@ def process_ipn(params):
         invoice.trang_thai = HoaDon.TrangThai.DA_THANH_TOAN
         invoice.ngay_thanh_toan = attempt.hoan_tat_luc
         invoice.save(update_fields=['trang_thai', 'ngay_thanh_toan', 'ngay_cap_nhat'])
+        from core.receipts.delivery import schedule_confirmation
+        schedule_confirmation(invoice)
     return '00', 'Confirm Success'

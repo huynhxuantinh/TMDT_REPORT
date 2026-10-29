@@ -1,7 +1,7 @@
 ﻿from django.shortcuts import render, get_object_or_404, redirect
 import datetime
 import math
-import random
+import secrets
 import re
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
@@ -14,6 +14,7 @@ from django.core.cache import cache
 from django.core.mail import send_mail
 from django.core.paginator import Paginator
 from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
 from django.forms import modelform_factory
 from django.http import Http404, JsonResponse
 from django.db import IntegrityError, transaction
@@ -57,6 +58,13 @@ from .billing.services import BillingError, bill_exam, billing_context as exam_b
 # ==========================
 # TRANG CHỦ
 # ==========================
+def _patient_for_user(user):
+    patient = BenhNhan.objects.filter(user=user).first()
+    if patient is None:
+        patient = BenhNhan.objects.filter(user__isnull=True, so_dien_thoai=user.username).first()
+    return patient
+
+
 def home(request):
 
     bvs = BenhVien.objects.all().prefetch_related("gio_lam_viecs")
@@ -146,9 +154,7 @@ def home(request):
             for lich in doctor_today:
                 lich.ca_label = "Ca sáng" if lich.gio_kham < datetime.time(12, 0) else "Ca chiều"
         else:
-            benh_nhan = BenhNhan.objects.filter(
-                so_dien_thoai=request.user.username
-            ).only("ho_ten").first()
+            benh_nhan = _patient_for_user(request.user)
             display_name = benh_nhan.ho_ten if benh_nhan else request.user.username
 
     query_params = request.GET.copy()
@@ -499,9 +505,7 @@ def dat_lich(request, bv_id):
 
     benh_vien = get_object_or_404(BenhVien, id=bv_id)
 
-    benh_nhan = BenhNhan.objects.filter(
-        so_dien_thoai=request.user.username
-    ).first()
+    benh_nhan = _patient_for_user(request.user)
 
     if not benh_nhan:
         return render(request, "core/error.html", {
@@ -614,9 +618,7 @@ def dat_lich(request, bv_id):
 
 @login_required
 def upcoming_appointments(request):
-    benh_nhan = BenhNhan.objects.filter(
-        so_dien_thoai=request.user.username
-    ).first()
+    benh_nhan = _patient_for_user(request.user)
 
     if not benh_nhan:
         return render(request, "core/error.html", {
@@ -666,9 +668,7 @@ def cancel_appointment(request, lich_id):
     if request.method != "POST":
         return redirect("upcoming_appointments")
 
-    benh_nhan = BenhNhan.objects.filter(
-        so_dien_thoai=request.user.username
-    ).first()
+    benh_nhan = _patient_for_user(request.user)
 
     if not benh_nhan:
         return render(request, "core/error.html", {
@@ -712,9 +712,7 @@ def cancel_appointment(request, lich_id):
 # ==========================
 @login_required
 def medical_history(request):
-    benh_nhan = BenhNhan.objects.filter(
-        so_dien_thoai=request.user.username
-    ).first()
+    benh_nhan = _patient_for_user(request.user)
 
     if not benh_nhan:
         return render(request, "core/error.html", {
@@ -764,9 +762,7 @@ def phieu_kham_detail(request, phieu_id):
             **exam_billing_context(phieu),
         })
 
-    benh_nhan = BenhNhan.objects.filter(
-        so_dien_thoai=request.user.username
-    ).first()
+    benh_nhan = _patient_for_user(request.user)
 
     if not benh_nhan:
         return render(request, "core/error.html", {
@@ -917,37 +913,6 @@ def doctor_exam(request, lich_id):
 def register(request):
 
     if request.method == "POST":
-        action = request.POST.get("action", "update_profile")
-        if action == "change_password":
-            current_password = request.POST.get("current_password", "")
-            new_password = request.POST.get("new_password", "")
-            confirm_password = request.POST.get("confirm_password", "")
-
-            if not current_password or not new_password or not confirm_password:
-                messages.error(request, "Vui lòng nhập đầy đủ thông tin đổi mật khẩu.")
-                return redirect("profile")
-
-            if not request.user.check_password(current_password):
-                messages.error(request, "Mật khẩu hiện tại không đúng.")
-                return redirect("profile")
-
-            if new_password != confirm_password:
-                messages.error(request, "Mật khẩu xác nhận không khớp.")
-                return redirect("profile")
-
-            try:
-                validate_password(new_password, user=request.user)
-            except ValidationError as exc:
-                for err in exc.messages:
-                    messages.error(request, err)
-                return redirect("profile")
-
-            request.user.set_password(new_password)
-            request.user.save()
-            update_session_auth_hash(request, request.user)
-            messages.success(request, "Đổi mật khẩu thành công.")
-            return redirect("profile")
-
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
         name = request.POST.get("name", "").strip()
@@ -957,52 +922,34 @@ def register(request):
             messages.error(request, "Vui lòng nhập đầy đủ họ tên, tên người dùng và mật khẩu.")
             return redirect("register")
 
-        username_pattern = r"^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]+$"
-        if not re.fullmatch(username_pattern, username):
-            messages.error(
-                request,
-                "Tên người dùng phải không dấu, không khoảng trắng và phải gồm cả chữ lẫn số.",
-            )
+        # Keep phone-number usernames used by existing accounts/clients.
+        legacy_phone = bool(re.fullmatch(r"[0-9]{9,15}", username))
+        if len(username) > 150 or not (legacy_phone or re.fullmatch(r"(?=.*[A-Za-z])(?=.*[0-9])[A-Za-z0-9]+", username)):
+            messages.error(request, "Tên người dùng phải gồm chữ và số không dấu, hoặc số điện thoại.")
             return redirect("register")
 
-        if not email:
-            messages.error(request, "Vui lòng nhập email")
-            return redirect("register")
-
-        if User.objects.filter(email=email).exists():
-            messages.error(request, "Email đã được sử dụng")
-            return redirect("register")
-
-        if User.objects.filter(username=username).exists():
-
-            messages.error(request, "Tài khoản đã tồn tại")
-
-            return redirect("register")
-
+        phone = request.POST.get("phone", "").strip() or (username if legacy_phone else "")
         try:
-            validate_password(password)
+            validate_email(email)
+            validate_password(password, user=User(username=username, email=email))
+            if User.objects.filter(email__iexact=email).exists():
+                raise ValidationError("Email đã được sử dụng.")
+            with transaction.atomic():
+                user = User(username=username, email=email)
+                user.set_password(password)
+                user.full_clean()
+                user.save()
+                patient = BenhNhan(user=user, ho_ten=name, so_dien_thoai=phone,
+                                   ngay_sinh="2000-01-01", gioi_tinh="nam", dia_chi="Chưa cập nhật")
+                patient.full_clean()
+                patient.save()
         except ValidationError as exc:
-            for err in exc.messages:
-                messages.error(request, err)
+            for error in exc.messages:
+                messages.error(request, error)
             return redirect("register")
-
-
-        user = User.objects.create_user(
-            username=username,
-            password=password,
-            email=email,
-        )
-
-
-        BenhNhan.objects.create(
-            user=user,
-            ho_ten=name,
-            so_dien_thoai=username,
-            ngay_sinh="2000-01-01",
-            gioi_tinh="nam",
-            dia_chi="Chưa cập nhật"
-        )
-
+        except IntegrityError:
+            messages.error(request, "Tài khoản hoặc số điện thoại đã được sử dụng.")
+            return redirect("register")
 
         messages.success(request, "Đăng ký thành công")
 
@@ -1022,10 +969,6 @@ def user_login(request):
 
         if not username:
             messages.error(request, "Vui lòng nhập tên người dùng.")
-            return render(request, "core/login.html")
-
-        if username.isdigit():
-            messages.error(request, "Vui lòng đăng nhập bằng tên người dùng.")
             return render(request, "core/login.html")
 
         user = authenticate(
@@ -2044,7 +1987,7 @@ def forgot_password(request):
                 )
                 return redirect("forgot_password")
 
-            otp_code = f"{random.randint(0, 999999):06d}"
+            otp_code = f"{secrets.randbelow(1000000):06d}"
             expires_at = timezone.now() + datetime.timedelta(
                 minutes=FORGOT_PASSWORD_OTP_EXPIRE_MINUTES
             )
@@ -2098,8 +2041,13 @@ def forgot_password(request):
                 messages.error(request, "Vui lòng nhập đúng mã OTP gồm 6 chữ số.")
                 return redirect("forgot_password")
 
-            if otp_input != str(state.get("otp_code", "")):
-                messages.error(request, "Mã OTP không đúng.")
+            if not secrets.compare_digest(otp_input, str(state.get("otp_code", ""))):
+                state["attempts"] = state.get("attempts", 0) + 1
+                if state["attempts"] >= 5:
+                    _clear_forgot_password_flow(request)
+                else:
+                    request.session[FORGOT_PASSWORD_SESSION_KEY] = state
+                messages.error(request, "Mã OTP không đúng. Sau 5 lần sai, vui lòng yêu cầu mã mới.")
                 return redirect("forgot_password")
 
             state["verified"] = True
@@ -2131,10 +2079,17 @@ def forgot_password(request):
                 messages.error(request, "Mật khẩu xác nhận không khớp.")
                 return redirect("forgot_password")
 
-        user = User.objects.filter(username=username, email=email).first()
-        if not user:
-            messages.error(request, "SĐT hoặc email không đúng")
-            return redirect("forgot_password")
+            user = User.objects.filter(pk=state.get("user_id"), email=state.get("email"), is_active=True).first()
+            if not user:
+                _clear_forgot_password_flow(request)
+                messages.error(request, "Tài khoản đã thay đổi. Vui lòng thực hiện lại.")
+                return redirect("forgot_password")
+            try:
+                validate_password(new_password, user=user)
+            except ValidationError as exc:
+                for error in exc.messages:
+                    messages.error(request, _translate_password_validation_message(error))
+                return redirect("forgot_password")
 
             user.set_password(new_password)
             user.save(update_fields=["password"])
@@ -2584,9 +2539,7 @@ def bac_si_phieu_kham_edit(request, phieu_id):
 @login_required
 def profile(request):
 
-    benh_nhan = BenhNhan.objects.filter(
-        so_dien_thoai=request.user.username
-    ).first()
+    benh_nhan = _patient_for_user(request.user)
 
     if not benh_nhan:
         return render(request, "core/error.html", {
@@ -2594,50 +2547,65 @@ def profile(request):
         })
 
     if request.method == "POST":
+        action = request.POST.get("action", "update_profile")
+        if action == "change_password":
+            current_password = request.POST.get("current_password", "")
+            new_password = request.POST.get("new_password", "")
+            confirm_password = request.POST.get("confirm_password", "")
 
-        so_dien_thoai_moi = request.POST.get("so_dien_thoai", "").strip()
-        if so_dien_thoai_moi and so_dien_thoai_moi != request.user.username:
-            if User.objects.filter(username=so_dien_thoai_moi).exclude(pk=request.user.pk).exists():
-                messages.error(request, "Số điện thoại đã được sử dụng cho tài khoản khác")
+            if not current_password or not new_password or not confirm_password:
+                messages.error(request, "Vui lòng nhập đầy đủ thông tin đổi mật khẩu.")
                 return redirect("profile")
-            request.user.username = so_dien_thoai_moi
+
+            if not request.user.check_password(current_password):
+                messages.error(request, "Mật khẩu hiện tại không đúng.")
+                return redirect("profile")
+
+            if new_password != confirm_password:
+                messages.error(request, "Mật khẩu xác nhận không khớp.")
+                return redirect("profile")
+
+            try:
+                validate_password(new_password, user=request.user)
+            except ValidationError as exc:
+                for err in exc.messages:
+                    messages.error(request, err)
+                return redirect("profile")
+
+            request.user.set_password(new_password)
             request.user.save()
+            update_session_auth_hash(request, request.user)
+            messages.success(request, "Đổi mật khẩu thành công.")
+            return redirect("profile")
 
-        benh_nhan.ho_ten = request.POST["ho_ten"]
-        benh_nhan.ngay_sinh = request.POST["ngay_sinh"]
-        benh_nhan.gioi_tinh = request.POST["gioi_tinh"]
-        benh_nhan.dia_chi = request.POST["dia_chi"]
-        if so_dien_thoai_moi:
-            benh_nhan.so_dien_thoai = so_dien_thoai_moi
-
-        # BHYT
-        ma_bhyt = request.POST.get("ma_bhyt", "").strip()
-        ngay_cap = request.POST.get("ngay_cap", "").strip()
-        ngay_het_han = request.POST.get("ngay_het_han", "").strip()
-
-        if ma_bhyt:
-            if not ngay_cap or not ngay_het_han:
-                messages.error(request, "Vui lòng nhập ngày cấp và ngày hết hạn của BHYT")
-                return redirect("profile")
-
-            bhyt, created = BaoHiemYTe.objects.get_or_create(
-                ma_bhyt=ma_bhyt,
-                defaults={
-                    "ngay_cap": ngay_cap,
-                    "ngay_het_han": ngay_het_han,
-                },
-            )
-
-            if not created and (
-                str(bhyt.ngay_cap) != ngay_cap or str(bhyt.ngay_het_han) != ngay_het_han
-            ):
-                bhyt.ngay_cap = ngay_cap
-                bhyt.ngay_het_han = ngay_het_han
-                bhyt.save()
-
-            benh_nhan.bhyt = bhyt
-
-        benh_nhan.save()
+        try:
+            with transaction.atomic():
+                benh_nhan = BenhNhan.objects.select_for_update().get(pk=benh_nhan.pk)
+                for field in ("ho_ten", "ngay_sinh", "gioi_tinh", "dia_chi", "so_dien_thoai"):
+                    setattr(benh_nhan, field, request.POST.get(field, "").strip())
+                ma_bhyt = request.POST.get("ma_bhyt", "").strip()
+                if ma_bhyt:
+                    bhyt = BaoHiemYTe.objects.select_for_update().filter(ma_bhyt=ma_bhyt).first()
+                    if bhyt and BenhNhan.objects.filter(bhyt=bhyt).exclude(pk=benh_nhan.pk).exists():
+                        raise ValidationError("BHYT đã thuộc hồ sơ khác.")
+                    if bhyt is None:
+                        bhyt = BaoHiemYTe(ma_bhyt=ma_bhyt)
+                    bhyt.ngay_cap = request.POST.get("ngay_cap", "").strip()
+                    bhyt.ngay_het_han = request.POST.get("ngay_het_han", "").strip()
+                    bhyt.full_clean()
+                    bhyt.save()
+                    benh_nhan.bhyt = bhyt
+                # Link legacy profiles on successful update; phone changes do not rename login.
+                benh_nhan.user = request.user
+                benh_nhan.full_clean()
+                benh_nhan.save()
+        except ValidationError as exc:
+            for error in exc.messages:
+                messages.error(request, error)
+            return redirect("profile")
+        except IntegrityError:
+            messages.error(request, "Số điện thoại hoặc BHYT đã được sử dụng.")
+            return redirect("profile")
 
         messages.success(request, "Cập nhật thành công")
 

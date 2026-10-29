@@ -12,10 +12,11 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
-from core.models import GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
+from core.models import EmailPhieuThanhToan, GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
 from core.billing.services import BillingError, bill_exam, validate_invoice_total, payable_error
 from . import services, vnpay
 from .access import can_admin, cashier_profile, scoped_appointments
+from core.receipts.delivery import ERROR_MESSAGES, eligible
 
 
 def collector_required(view):
@@ -85,10 +86,15 @@ def payment_detail(request, lich_id, monitor=False):
         except BillingError as exc:
             invoice_error = ' '.join(exc.messages)
     amount_error = payable_error(invoice) if invoice else ''
+    email_row = EmailPhieuThanhToan.objects.filter(hoa_don=invoice).first() if invoice else None
     available = bool(invoice and invoice.trang_thai == 'unpaid' and not invoice.can_doi_soat
                      and not any(a.trang_thai not in ['failed', 'cancelled', 'expired'] for a in attempts)
                      and not completion_error and not invoice_error and not monitor)
     return render(request, 'core/payments/detail.html', {
+        'receipt_email': email_row,
+        'receipt_email_error': ERROR_MESSAGES.get(email_row.ma_loi, '') if email_row else '',
+        'can_retry_email': bool(invoice and eligible(invoice) and
+                               (not email_row or email_row.trang_thai in ['pending', 'failed', 'skipped'])),
         'monitor': monitor, 'list_route': 'cashier_monitor' if monitor else 'payment_list',
         'detail_route': 'cashier_monitor_detail' if monitor else 'payment_detail',
         'can_cash': available and invoice.so_tien > 0 and not invoice.hoan_tat_bhyt,

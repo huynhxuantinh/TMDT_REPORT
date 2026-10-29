@@ -249,6 +249,37 @@ class GiaoDichThanhToan(models.Model):
         return self.ma_tham_chieu
 
 
+class EmailPhieuThanhToan(models.Model):
+    """One durable delivery record per invoice, separate from settlement state."""
+    class TrangThai(models.TextChoices):
+        CHO = 'pending', 'Chờ gửi vào Mailtrap Testing'
+        DANG_GUI = 'sending', 'Đang gửi / chưa có kết quả cuối'
+        DA_GUI = 'sent', 'Đã gửi vào Mailtrap Testing'
+        LOI = 'failed', 'Gửi lỗi — có thể thử lại'
+        BO_QUA = 'skipped', 'Bỏ qua — chưa có email hợp lệ'
+        CHUA_RO = 'unknown', 'Chưa rõ kết quả — cần kiểm tra Mailtrap'
+
+    hoa_don = models.OneToOneField(HoaDon, on_delete=models.PROTECT, related_name='email_phieu')
+    trang_thai = models.CharField(max_length=10, choices=TrangThai.choices, default=TrangThai.CHO)
+    email_nhan = models.EmailField(blank=True)
+    ma_thu = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    so_lan_thu = models.PositiveIntegerField(default=0)
+    ma_loi = models.CharField(max_length=40, blank=True)
+    bat_dau_luc = models.DateTimeField(null=True, blank=True)
+    gui_luc = models.DateTimeField(null=True, blank=True)
+    nguoi_thu_lai = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    ngay_tao = models.DateTimeField(auto_now_add=True)
+    ngay_cap_nhat = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Email phiếu thanh toán'
+        verbose_name_plural = 'Email phiếu thanh toán'
+        constraints = [
+            models.CheckConstraint(condition=models.Q(trang_thai__in=['pending', 'sending', 'sent', 'failed', 'skipped', 'unknown']), name='receipt_email_valid_status'),
+            models.CheckConstraint(condition=(models.Q(trang_thai='sent', gui_luc__isnull=False) | (~models.Q(trang_thai='sent') & models.Q(gui_luc__isnull=True))), name='receipt_email_sent_timestamp'),
+        ]
+
+
 class ThuNgan(models.Model):
     """One existing auth identity, assigned to exactly one hospital."""
     user = models.OneToOneField(User, on_delete=models.PROTECT, related_name='thu_ngan')

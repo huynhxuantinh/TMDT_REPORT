@@ -13,6 +13,10 @@
     {% if amount_error %}<p class="notice">{{ amount_error }}</p>{% endif %}
     {% if invoice %}
         <h2>Hóa đơn #{{ invoice.pk }}: {{ invoice.so_tien|floatformat:'0g' }} VND</h2>
+        <p><a href="{% url 'receipt_view' invoice.pk %}" target="_blank" rel="noopener">Xem phiếu PDF</a> ·
+           <a href="{% url 'receipt_download' invoice.pk %}">Tải PDF</a> ·
+           <a href="{% url 'receipt_print' invoice.pk %}" target="_blank" rel="noopener">In phiếu</a></p>
+        <p class="muted">Phiếu thanh toán nội bộ, không phải hóa đơn điện tử có giá trị pháp lý.</p>
         {% if invoice.nguon == 'services' %}
             <p>Phiếu khám #{{ invoice.phieu_kham_id }} · phiên bản {{ invoice.phien_ban }}.</p>
             <div class="table-wrap"><table>
@@ -49,6 +53,25 @@
         </form>
     {% endif %}
 </section>
+{% if invoice %}<section>
+    <h2>Email phiếu thanh toán</h2>
+    <p>Chỉ gửi vào Mailtrap Email Testing, không gửi tới hộp thư thật.</p>
+    {% if receipt_email %}
+        <p><strong>{{ receipt_email.get_trang_thai_display }}</strong> · Lần xử lý: {{ receipt_email.so_lan_thu }}</p>
+        {% if receipt_email.gui_luc %}<p>Thời gian ghi nhận gửi: {{ receipt_email.gui_luc|date:'d/m/Y H:i:s' }}</p>{% endif %}
+        {% if receipt_email_error %}<p class="notice">{{ receipt_email_error }}</p>{% endif %}
+        {% if receipt_email.trang_thai == 'sending' or receipt_email.trang_thai == 'unknown' %}
+            <p class="notice">Không bấm gửi lại. Nếu trạng thái kéo dài, nhờ Admin kiểm tra Mailtrap Inbox và đối soát kết quả.</p>
+        {% endif %}
+    {% elif invoice.hoan_tat_bhyt %}<p>Hóa đơn 0đ tự hoàn tất; có thể xem/in/tải PDF, không gửi email xác nhận thu tiền.</p>
+    {% else %}<p>Chưa có bản ghi gửi email. Email tự kích hoạt sau khi giao dịch thanh toán mới được ghi nhận thành công.</p>{% endif %}
+    {% if can_retry_email %}
+        <form method="post" action="{% url 'receipt_email_retry' invoice.pk %}">{% csrf_token %}
+            <input type="hidden" name="attempts" value="{{ receipt_email.so_lan_thu|default:0 }}">
+            <button type="submit">{% if receipt_email %}Thử gửi lại vào Mailtrap Testing{% else %}Gửi phiếu vào Mailtrap Testing{% endif %}</button>
+        </form>
+    {% endif %}
+</section>{% endif %}
 {% if invoice_logs %}<section>
     <h2>Lịch sử chi phí</h2>
     {% for log in invoice_logs %}<p>{{ log.thoi_gian|date:'d/m/Y H:i:s' }} · {{ log.nguoi_thuc_hien.username }} ·

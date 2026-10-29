@@ -351,6 +351,7 @@ venv\Scripts\python.exe manage.py check
 ## 13) Chạy tests
 
 ```powershell
+venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 venv\Scripts\python.exe manage.py test
 ```
 
@@ -395,6 +396,8 @@ IPN: `/thanh-toan/vnpay/ipn/`. ReturnURL: `/thanh-toan/vnpay/return/`. Chỉ IPN
 **TASK 06 — Thu ngân và tiền mặt:** Admin tạo/phân công thu ngân tại `/quan-tri/thu-ngan/`; thu ngân dùng `/thanh-toan/` trong phạm vi một bệnh viện. Hỗ trợ thu đủ bằng tiền mặt, kể cả số phải trả 1–4.999đ, dùng chung khóa chống thu trùng với VNPAY. Admin giám sát toàn hệ thống tại `/quan-tri/thu-ngan/hoa-don/`. Xem [hướng dẫn và báo cáo TASK 06](docs/TASK06_THU_NGAN_TIEN_MAT.md).
 
 ## Ghi chú kỹ thuật
+
+**TASK 07 — PDF và Mailtrap Testing:** trang hóa đơn có nút xem/in/tải phiếu nội bộ A4 tiếng Việt và trạng thái email. Tiền mặt/IPN thành công sẽ gửi PDF sau commit, chỉ vào Mailtrap Testing; có khóa chống gửi trùng và thử lại có kiểm soát. Xem [hướng dẫn cấu hình, URL và đối soát email](docs/TASK07_PDF_MAILTRAP.md).
 
 - **Username = số điện thoại**: bệnh nhân đăng nhập bằng `so_dien_thoai`, được lưu làm `User.username`.
 - **Cache**: trang chủ cache kết quả filter 60 giây (LocMemCache, per-process).
