@@ -1,4 +1,6 @@
-# QL_BENHVIEN — Hệ thống Quản lý Bệnh viện tích hợp GIS
+# MedCare GIS — Hệ thống Quản lý Bệnh viện tích hợp GIS
+
+> **Tên gọi:** sản phẩm hiển thị với người dùng là **MedCare GIS**. `QL_BENHVIEN` chỉ còn là mã dự án — tên thư mục clone, tên database và tiền tố trong tài liệu kỹ thuật. Một tên thương hiệu duy nhất được khai báo ở `SITE_BRAND_NAME` trong `hospital/settings.py`; template, PDF và email đều đọc từ đó.
 
 Ứng dụng web Django + PostGIS để tìm kiếm bệnh viện trên bản đồ, đặt lịch khám và quản lý hồ sơ bệnh nhân.
 

@@ -1,0 +1,42 @@
+{% load static %}<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Vận hành{% endblock %} · {{ brand_name }}</title>
+    <link rel="stylesheet" href="{% static 'core/css/operations.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body class="operations-page {% block body_class %}{% endblock %}" data-brand="{{ brand_code }}">
+    <header class="site-bar">
+        <a class="brand" href="{% url 'home' %}">
+            <span class="brand-name">{{ brand_name }}</span>
+            <span class="brand-sub">{% block area %}Khu vận hành{% endblock %}</span>
+        </a>
+        <nav class="site-nav" aria-label="Điều hướng chung">
+            <a href="{% url 'home' %}"{% if request.resolver_match.url_name == 'home' %} aria-current="page"{% endif %}>Trang chủ</a>
+            {% if nav_can_collect %}
+                <a href="{% url 'payment_list' %}"{% if request.resolver_match.url_name == 'payment_list' %} aria-current="page"{% endif %}>Thu tiền sau khám</a>
+            {% endif %}
+            {% if nav_can_admin %}
+                <a href="{% url 'custom_admin_dashboard' %}"{% if request.resolver_match.url_name == 'custom_admin_dashboard' %} aria-current="page"{% endif %}>Quản trị</a>
+                <a href="{% url 'service_list' %}"{% if request.resolver_match.url_name == 'service_list' %} aria-current="page"{% endif %}>Dịch vụ &amp; bảng giá</a>
+                <a href="{% url 'cashier_list' %}"{% if request.resolver_match.url_name == 'cashier_list' %} aria-current="page"{% endif %}>Quản lý chi nhánh</a>
+                <a href="{% url 'cashier_monitor' %}"{% if request.resolver_match.url_name in 'cashier_monitor,cashier_monitor_detail' %} aria-current="page"{% endif %}>Đối soát</a>
+            {% endif %}
+            {% block site_nav %}{% endblock %}
+        </nav>
+        {% if user.is_authenticated %}
+            <div class="account">
+                <span class="muted">{{ user.username }}</span>
+                <form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="btn secondary">Đăng xuất</button></form>
+            </div>
+        {% endif %}
+    </header>
+    <main class="page">
+        {% block section_nav %}{% endblock %}
+        {% for message in messages %}<p role="status" class="notice {{ message.tags }}">{{ message }}</p>{% endfor %}
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

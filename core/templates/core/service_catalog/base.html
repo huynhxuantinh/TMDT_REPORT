@@ -1,18 +1,10 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dịch vụ &amp; bảng giá{% endblock %} · MedCare GIS</title>
-    <link rel="stylesheet" href="{% static 'core/css/operations.css' %}">
-</head>
-<body class="operations-page catalog-page"><main class="page">
-    <header class="card head page-header">
-        <div><strong>MedCare GIS · Quản trị</strong><p class="muted">Danh mục và bảng giá chung cho tất cả bệnh viện</p></div>
-        <nav class="actions"><a class="btn" href="{% url 'custom_admin_dashboard' %}">Bảng điều khiển</a><a class="btn" href="{% url 'service_list' %}">Dịch vụ &amp; bảng giá</a></nav>
-    </header>
-    {% for message in messages %}<p role="status" class="notice {{ message.tags }}">{{ message }}</p>{% endfor %}
-    {% block content %}{% endblock %}
-</main></body>
-</html>
+{% extends 'core/operations/base.html' %}
+{% block body_class %}catalog-page{% endblock %}
+{% block area %}Danh mục &amp; bảng giá{% endblock %}
+{% block section_nav %}
+<nav class="section-nav" aria-label="Khu danh mục">
+    <a href="{% url 'service_list' %}"{% if request.resolver_match.url_name == 'service_list' %} aria-current="page"{% endif %}>Dịch vụ &amp; bảng giá</a>
+    <a href="{% url 'bhyt_rule_list' %}"{% if request.resolver_match.url_name == 'bhyt_rule_list' %} aria-current="page"{% endif %}>BHYT mô phỏng</a>
+    {% if nav_can_admin %}<a href="{% url 'custom_admin_dashboard' %}">Bảng điều khiển</a>{% endif %}
+</nav>
+{% endblock %}

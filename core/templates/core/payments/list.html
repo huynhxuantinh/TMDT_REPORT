@@ -1,44 +1,77 @@
 {% extends 'core/payments/base.html' %}
-{% load catalog_money %}
+{% load catalog_money payments_ui pagination %}
+{% block title %}{% if monitor %}Đối soát hóa đơn toàn hệ thống{% else %}Thu tiền sau khám{% endif %}{% endblock %}
+{% block area %}{% if monitor %}Đối soát hóa đơn{% else %}Thu tiền sau khám{% endif %}{% endblock %}
 {% block content %}
 <section>
-    {% if user.is_staff or user.is_superuser %}<a href="{% url 'custom_admin_dashboard' %}">← Quản trị</a> · <a href="{% url 'cashier_list' %}">Quản lý chi nhánh</a>{% endif %}
-    <h1>Thu tiền sau khám</h1>
-    <p>Chọn ca đã hoàn tất để xem chi phí dịch vụ, hóa đơn và kết quả thanh toán.</p>
-    {% if profile %}<p>Quản lý chi nhánh: {{ user.username }} · {{ profile.benh_vien.ten }}</p>{% endif %}
-    {% if monitor %}<p class="muted">Theo dõi toàn hệ thống · chỉ xem.</p>{% endif %}
-    <form method="get" class="filters">
-        <label>Tìm mã hóa đơn / tên bệnh nhân <input name="q" value="{{ q }}" maxlength="100"></label>
-        <label>Trạng thái <select name="status">
-            <option value="">Tất cả</option>
-            <option value="unpaid" {% if status == 'unpaid' %}selected{% endif %}>Chưa thanh toán</option>
-            <option value="no_invoice" {% if status == 'no_invoice' %}selected{% endif %}>Chưa lập hóa đơn</option>
-            <option value="pending" {% if status == 'pending' %}selected{% endif %}>Đang xử lý</option>
-            <option value="reconcile" {% if status == 'reconcile' %}selected{% endif %}>Cần đối soát</option>
-            <option value="paid" {% if status == 'paid' %}selected{% endif %}>Đã thanh toán</option>
-            <option value="failed" {% if status == 'failed' %}selected{% endif %}>Hủy / thất bại / hết hạn</option>
-        </select></label>
-        <button type="submit">Tìm / làm mới trạng thái</button>
+    <div class="head">
+        <div>
+            <h1>{% if monitor %}Đối soát hóa đơn toàn hệ thống{% else %}Thu tiền sau khám{% endif %}</h1>
+            <p class="muted">{% if monitor %}Xem hóa đơn và giao dịch của mọi bệnh viện, không thao tác thu tiền.{% else %}Ca khám đã hoàn tất. Mở một ca để xem chi phí, hóa đơn và kết quả thanh toán.{% endif %}</p>
+        </div>
+        {% if monitor %}<span class="status-badge" data-tone="neutral">Chỉ xem — toàn hệ thống</span>{% endif %}
+    </div>
+    {% if profile %}<p class="muted">Quản lý chi nhánh: {{ user.username }} · {{ profile.benh_vien.ten }}</p>{% endif %}
+
+    <form method="get" class="filters" role="search">
+        <label for="q">Tìm mã hóa đơn / tên bệnh nhân
+            <input id="q" name="q" value="{{ q }}" maxlength="100" placeholder="Ví dụ: 1024 hoặc Nguyễn Văn A">
+        </label>
+        <label for="status">Trạng thái
+            <select id="status" name="status">
+                <option value="">Tất cả trạng thái</option>
+                <option value="unpaid" {% if status == 'unpaid' %}selected{% endif %}>Chưa thanh toán</option>
+                <option value="no_invoice" {% if status == 'no_invoice' %}selected{% endif %}>Chưa lập hóa đơn</option>
+                <option value="pending" {% if status == 'pending' %}selected{% endif %}>Đang xử lý</option>
+                <option value="reconcile" {% if status == 'reconcile' %}selected{% endif %}>Cần đối soát</option>
+                <option value="paid" {% if status == 'paid' %}selected{% endif %}>Đã thanh toán</option>
+                <option value="failed" {% if status == 'failed' %}selected{% endif %}>Hủy / thất bại / hết hạn</option>
+            </select>
+        </label>
+        <div class="filter-actions">
+            <button type="submit">Tìm</button>
+            <a class="btn secondary" href="{{ request.path }}">Xóa lọc</a>
+            <a class="btn secondary" href="" title="Tải lại danh sách và trạng thái mới nhất">Làm mới trạng thái</a>
+        </div>
     </form>
+
+    <p class="muted">{{ page_obj.paginator.count }} ca khám</p>
     <div class="table-wrap"><table>
-        <thead><tr><th>Lịch khám</th><th>Bệnh nhân</th><th>Bệnh viện</th><th>Khoản phải thu</th><th></th></tr></thead>
+        <thead><tr>
+            <th scope="col">Lịch khám</th><th scope="col">Bệnh nhân</th><th scope="col">Bệnh viện</th>
+            <th scope="col">Khoản phải thu</th><th scope="col"><span class="visually-hidden">Thao tác</span></th>
+        </tr></thead>
         <tbody>{% for lich in page_obj %}<tr>
-            <td>#{{ lich.pk }} · {{ lich.ngay_kham|date:'d/m/Y' }} {{ lich.gio_kham|time:'H:i' }}</td>
-            <td>{{ lich.benh_nhan.ho_ten }}</td><td>{{ lich.bac_si.benh_vien.ten }}</td>
-            <td>{% if lich.hoa_don %}Hóa đơn #{{ lich.hoa_don.pk }}<br>
-                Tổng: {{ lich.hoa_don.tong_truoc_bhyt|vnd }}<br>BHYT mô phỏng: {{ lich.hoa_don.bhyt_ho_tro|vnd }}<br>
-                <strong>Thực trả: {{ lich.hoa_don.so_tien|vnd }}</strong><br>
-                {% if lich.hoa_don.can_doi_soat %}Cần đối soát
-                {% elif lich.hoa_don.hoan_tat_bhyt %}Đã hoàn tất — không cần thu tiền (BHYT MÔ PHỎNG)
-                {% elif lich.payment_pending %}Đang xử lý
-                {% else %}{{ lich.hoa_don.get_trang_thai_display }}{% if lich.payment_failed and lich.hoa_don.trang_thai == 'unpaid' %} · Lần trước hủy / thất bại / hết hạn{% endif %}{% endif %}
-                {% for attempt in lich.hoa_don.giao_dichs.all %}{% if forloop.first %}<br>{{ attempt.get_phuong_thuc_display }} · {{ attempt.get_trang_thai_display }}{% endif %}{% endfor %}
-            {% else %}Chưa lập hóa đơn{% endif %}</td>
-            <td><a href="{% url detail_route lich.pk %}">Xem hóa đơn</a></td>
-        </tr>{% empty %}<tr><td colspan="5">Chưa có ca khám hoàn tất.</td></tr>{% endfor %}</tbody>
+            <td>#{{ lich.pk }}<br><span class="muted">{{ lich.ngay_kham|date:'d/m/Y' }} {{ lich.gio_kham|time:'H:i' }}</span></td>
+            <td>{{ lich.benh_nhan.ho_ten }}</td>
+            <td>{{ lich.bac_si.benh_vien.ten }}</td>
+            <td>
+                {% if lich.hoa_don %}
+                    <div class="status-layer">
+                        <span class="layer-label">Hóa đơn</span>
+                        {% if lich.hoa_don.hoan_tat_bhyt %}
+                            <span class="status-badge" data-tone="paid">Đã hoàn tất — BHYT mô phỏng</span>
+                        {% else %}
+                            <span class="status-badge" data-tone="{{ lich.hoa_don.trang_thai|tone }}">{{ lich.hoa_don.get_trang_thai_display }}</span>
+                        {% endif %}
+                        {% if lich.payment_pending %}<span class="status-badge" data-tone="pending">Đang xử lý</span>{% endif %}
+                        {% if lich.hoa_don.can_doi_soat %}<span class="status-badge" data-tone="danger">Cần đối soát</span>{% endif %}
+                    </div>
+                    <p class="muted">Hóa đơn #{{ lich.hoa_don.pk }} · Tổng {{ lich.hoa_don.tong_truoc_bhyt|vnd }} · BHYT {{ lich.hoa_don.bhyt_ho_tro|vnd }}</p>
+                    <p class="money">Thực trả: <strong>{{ lich.hoa_don.so_tien|vnd }}</strong></p>
+                    {% if lich.payment_failed and lich.hoa_don.trang_thai == 'unpaid' %}
+                        <p class="muted">Lần trước hủy / thất bại / hết hạn</p>
+                    {% endif %}
+                    {% for attempt in lich.hoa_don.giao_dichs.all %}{% if forloop.first %}
+                        <p class="muted">Giao dịch: {{ attempt.get_phuong_thuc_display }} · {{ attempt.get_trang_thai_display }}</p>
+                    {% endif %}{% endfor %}
+                {% else %}
+                    <span class="status-badge" data-tone="neutral">Chưa lập hóa đơn</span>
+                {% endif %}
+            </td>
+            <td><a class="btn" href="{% url detail_route lich.pk %}">Xem hóa đơn</a></td>
+        </tr>{% empty %}<tr><td colspan="5">Chưa có ca khám hoàn tất phù hợp bộ lọc.</td></tr>{% endfor %}</tbody>
     </table></div>
-    {% if page_obj.has_previous %}<a href="?q={{ q|urlencode }}&amp;status={{ status|urlencode }}&amp;page={{ page_obj.previous_page_number }}">Trang trước</a>{% endif %}
-    <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="?q={{ q|urlencode }}&amp;status={{ status|urlencode }}&amp;page={{ page_obj.next_page_number }}">Trang sau</a>{% endif %}
+    {% pagination page_obj %}
 </section>
 {% endblock %}

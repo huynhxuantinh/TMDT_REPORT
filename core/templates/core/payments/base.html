@@ -1,15 +1,16 @@
-{% load static %}
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{% block title %}Thanh toán{% endblock %} · MedCare GIS</title>
-    <link rel="stylesheet" href="{% static 'core/css/operations.css' %}">
-</head>
-<body class="operations-page payments-page"><main class="page">
-    <header class="card page-header"><strong>MedCare GIS · Thanh toán</strong><p class="muted">Thanh toán sau khám tại quầy</p>{% if user.is_authenticated %}<p class="muted">{{ user.username }}</p><form method="post" action="{% url 'logout' %}">{% csrf_token %}<button type="submit" class="btn secondary">Đăng xuất</button></form>{% endif %}</header>
-    {% for message in messages %}<p role="status" class="notice {{ message.tags }}">{{ message }}</p>{% endfor %}
-    {% block content %}{% endblock %}
-</main></body>
-</html>
+{% extends 'core/operations/base.html' %}
+{% block body_class %}payments-page{% endblock %}
+{% block area %}Thu tiền sau khám{% endblock %}
+{% block section_nav %}
+<nav class="section-nav" aria-label="Khu thanh toán">
+    {% if nav_can_collect %}
+        <a href="{% url 'payment_list' %}"{% if request.resolver_match.url_name == 'payment_list' %} aria-current="page"{% endif %}>Danh sách thu tiền</a>
+    {% endif %}
+    {% if nav_can_admin %}
+        <a href="{% url 'cashier_monitor' %}"{% if request.resolver_match.url_name == 'cashier_monitor' %} aria-current="page"{% endif %}>Đối soát toàn hệ thống</a>
+        <a href="{% url 'cashier_list' %}"{% if request.resolver_match.url_name == 'cashier_list' %} aria-current="page"{% endif %}>Quản lý chi nhánh</a>
+        <a href="{% url 'custom_admin_dashboard' %}">Bảng điều khiển</a>
+    {% endif %}
+    {% block payments_nav %}{% endblock %}
+</nav>
+{% endblock %}

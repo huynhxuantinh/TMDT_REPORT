@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} | QL Bệnh viện{% endblock %}
+{% block title %}{{ title }} | {{ brand_name }}{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -10,7 +10,7 @@
 
 {% block branding %}
 <h1 id="site-name">
-    <a href="{% url 'admin:index' %}">Quản trị QL Bệnh viện</a>
+    <a href="{% url 'admin:index' %}">Quản trị {{ brand_name }}</a>
 </h1>
 {% endblock %}
 

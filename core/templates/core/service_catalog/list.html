@@ -1,5 +1,5 @@
 {% extends 'core/service_catalog/base.html' %}
-{% load catalog_money %}
+{% load catalog_money pagination %}
 {% block content %}
 <section class="card">
     <div class="head"><h1>Dịch vụ &amp; bảng giá</h1><a class="btn primary" href="{% url 'service_create' %}">Thêm dịch vụ</a></div>
@@ -27,10 +27,6 @@
             </td>
         </tr>{% empty %}<tr><td colspan="6">Không có dịch vụ phù hợp. Bạn có thể thêm dịch vụ hoặc thay đổi bộ lọc.</td></tr>{% endfor %}</tbody>
     </table></div>
-    <nav class="pagination" aria-label="Phân trang">
-        {% if page_obj.has_previous %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page_obj.previous_page_number }}">Trang trước</a>{% endif %}
-        <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-        {% if page_obj.has_next %}<a href="?{{ query_string }}{% if query_string %}&amp;{% endif %}page={{ page_obj.next_page_number }}">Trang sau</a>{% endif %}
-    </nav>
+    {% pagination page_obj %}
 </section>
 {% endblock %}

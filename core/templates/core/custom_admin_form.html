@@ -1,77 +1,22 @@
-﻿<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
+﻿{% extends 'core/operations/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block area %}Biểu mẫu quản trị{% endblock %}
+{% block extra_head %}
     {% if show_map_picker %}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-control-geocoder/dist/Control.Geocoder.css">
     {% endif %}
-    <style>
-        body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; background: #f2f6f5; color: #1f2a27; }
-        .page { max-width: 1000px; margin: 0 auto; padding: 22px 14px 32px; }
-        .card { background: #fff; border: 1px solid #d7e4df; border-radius: 14px; padding: 18px; }
-        h1 { margin: 0 0 8px; font-size: 28px; }
-        .meta { margin: 0 0 14px; color: #5e716c; font-size: 14px; }
-        .field { margin-bottom: 12px; }
-        .field label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 14px; }
-        input, select, textarea {
-            width: 100%; box-sizing: border-box; border: 1px solid #cbdbd5; border-radius: 10px;
-            padding: 10px 12px; font-size: 14px; background: #fff;
-        }
-        input[type="checkbox"] { width: auto; }
-        .errorlist { margin: 4px 0 0; color: #8a2f2f; font-size: 13px; padding-left: 16px; }
-        .actions { margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap; }
-        .btn {
-            display: inline-flex; align-items: center; justify-content: center; padding: 10px 14px;
-            border-radius: 999px; text-decoration: none; border: 1px solid #cedcd7; background: #fff;
-            color: #0f7d69; font-weight: 600; font-size: 13px; cursor: pointer;
-        }
-        .btn.primary { background: #0f7d69; border-color: #0f7d69; color: #fff; }
-
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .checkbox-row { display: flex; gap: 16px; flex-wrap: wrap; margin: 6px 0 2px; }
-        .checkbox-item {
-            border: 1px solid #d7e4df; border-radius: 10px; padding: 10px 12px;
-            display: inline-flex; align-items: center; gap: 8px; background: #f9fcfb;
-        }
-
-        .section-title { margin: 16px 0 10px; font-size: 18px; color: #1f3c36; }
-        .schedule-table-wrap { border: 1px solid #d7e4df; border-radius: 12px; overflow: auto; }
-        .schedule-table { width: 100%; border-collapse: collapse; min-width: 640px; }
-        .schedule-table th, .schedule-table td { border-bottom: 1px solid #edf2ef; padding: 10px; text-align: left; }
-        .schedule-table th { background: #f6fbf9; font-size: 13px; }
-        .schedule-table tr:last-child td { border-bottom: 0; }
-
-        .map-block { margin-bottom: 14px; }
-        #hospital-map { width: 100%; height: 360px; border: 1px solid #cbdbd5; border-radius: 10px; overflow: hidden; }
-        .map-note { margin-top: 6px; font-size: 13px; color: #5e716c; }
-        .image-manager { margin-top: 12px; border: 1px solid #d7e4df; border-radius: 12px; padding: 12px; background: #fbfefd; }
-        .image-manager .hint { margin: 6px 0 0; font-size: 12px; color: #5e716c; }
-        .image-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
-        .image-item { border: 1px solid #d7e4df; border-radius: 10px; background: #fff; overflow: hidden; }
-        .image-item img { width: 100%; height: 122px; object-fit: cover; display: block; background: #eef5f2; }
-        .image-actions { padding: 8px; display: grid; gap: 8px; }
-        .image-actions label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #2a4440; }
-        .empty-images { margin-top: 10px; font-size: 13px; color: #5e716c; }
-
-        @media (max-width: 800px) {
-            .grid-2 { grid-template-columns: 1fr; }
-        }
-    </style>
-</head>
-<body>
-    <div class="page">
-        <div class="card">
+{% endblock %}
+{% block content %}
+    <section class="card">
             <h1>{{ title }}</h1>
             {% if object_name %}
-                <p class="meta">&#272;&#7889;i t&#432;&#7907;ng: {{ object_name }}</p>
+                <p class="muted">Đối tượng: {{ object_name }}</p>
             {% endif %}
 
             {% if messages %}
                 {% for message in messages %}
-                    <p class="meta">{{ message }}</p>
+                    <p class="muted">{{ message }}</p>
                 {% endfor %}
             {% endif %}
 
@@ -86,7 +31,7 @@
                 {% endif %}
 
                 {% if show_hospital_layout %}
-                    <div class="grid-2">
+                    <div class="form-grid">
                         <div class="field">
                             <label for="{{ form.ten.id_for_label }}">{{ form.ten.label }}</label>
                             {{ form.ten }}
@@ -105,7 +50,7 @@
                         {{ form.dia_chi.errors }}
                     </div>
 
-                    <div class="grid-2">
+                    <div class="form-grid">
                         <div class="field">
                             <label for="{{ form.lat.id_for_label }}">{{ form.lat.label }}</label>
                             {{ form.lat }}
@@ -280,8 +225,7 @@
                     <a class="btn" href="{% url 'custom_admin_dashboard' %}">B&#7843;ng &#273;i&#7873;u khi&#7875;n</a>
                 </div>
             </form>
-        </div>
-    </div>
+    </section>
 
     <script>
         (function () {
@@ -443,7 +387,6 @@
             })();
         </script>
     {% endif %}
-</body>
-</html>
+{% endblock %}
 
 

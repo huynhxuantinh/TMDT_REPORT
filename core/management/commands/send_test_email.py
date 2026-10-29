@@ -15,7 +15,7 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--subject",
-            default="Test email from QL_BENHVIEN",
+            default=f"Test email from {settings.SITE_BRAND_NAME}",
             help="Email subject.",
         )
         parser.add_argument(

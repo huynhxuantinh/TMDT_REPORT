@@ -1,21 +1,27 @@
 {% extends 'core/payments/base.html' %}
+{% load pagination %}
 {% block title %}Quản lý chi nhánh{% endblock %}
 {% block content %}
 <section>
-    <a href="{% url 'custom_admin_dashboard' %}">← Quản trị</a>
-    <h1>Quản lý chi nhánh</h1>
-    <p>Mỗi quản lý chi nhánh được phân công đúng một bệnh viện.</p>
-    <p><a class="btn" href="{% url 'cashier_create' %}">Tạo tài khoản quản lý chi nhánh</a> <a href="{% url 'cashier_monitor' %}">Theo dõi hóa đơn toàn hệ thống</a></p>
+    <div class="head">
+        <div>
+            <h1>Quản lý chi nhánh</h1>
+            <p class="muted">Mỗi quản lý chi nhánh được phân công đúng một bệnh viện.</p>
+        </div>
+        <div class="actions">
+            <a class="btn" href="{% url 'cashier_create' %}">Tạo tài khoản quản lý chi nhánh</a>
+            <a class="btn secondary" href="{% url 'cashier_monitor' %}">Theo dõi hóa đơn toàn hệ thống</a>
+        </div>
+    </div>
     <div class="table-wrap"><table>
-        <thead><tr><th>Tài khoản</th><th>Bệnh viện</th><th>Trạng thái</th><th></th></tr></thead>
+        <thead><tr><th scope="col">Tài khoản</th><th scope="col">Bệnh viện</th><th scope="col">Trạng thái</th><th scope="col"><span class="visually-hidden">Thao tác</span></th></tr></thead>
         <tbody>{% for manager in page_obj %}<tr>
-            <td>{{ manager.user.username }}<br>{{ manager.user.get_full_name }}</td>
-            <td>{{ manager.benh_vien.ten }}</td><td>{{ manager.user.is_active|yesno:'Hoạt động,Vô hiệu hóa' }}</td>
-            <td><a href="{% url 'cashier_edit' manager.pk %}">Sửa / phân công / kích hoạt</a></td>
+            <td>{{ manager.user.username }}<br><span class="muted">{{ manager.user.get_full_name }}</span></td>
+            <td>{{ manager.benh_vien.ten }}</td>
+            <td><span class="status-badge" data-tone="{% if manager.user.is_active %}paid{% else %}neutral{% endif %}">{{ manager.user.is_active|yesno:'Hoạt động,Vô hiệu hóa' }}</span></td>
+            <td><a class="btn" href="{% url 'cashier_edit' manager.pk %}">Sửa / phân công / kích hoạt</a></td>
         </tr>{% empty %}<tr><td colspan="4">Chưa có quản lý chi nhánh.</td></tr>{% endfor %}</tbody>
     </table></div>
-    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Trang trước</a>{% endif %}
-    <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
-    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Trang sau</a>{% endif %}
+    {% pagination page_obj %}
 </section>
 {% endblock %}

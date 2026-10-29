@@ -72,6 +72,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.brand',
             ],
         },
     },
@@ -128,6 +129,12 @@ USE_I18N = True
 USE_TZ = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
+
+# One brand name for the UI, the PDF receipt and outgoing mail. The repository,
+# the database and the docs keep the historical QL_BENHVIEN code so existing
+# environments and deployment notes stay valid.
+SITE_BRAND_NAME = os.getenv('SITE_BRAND_NAME', 'MedCare GIS')
+SITE_BRAND_CODE = 'QL_BENHVIEN'
 
 CACHES = {
     "default": {
