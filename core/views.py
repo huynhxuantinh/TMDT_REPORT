@@ -980,7 +980,7 @@ def user_login(request):
         if user:
             login(request, user)
 
-            if hasattr(user, "thu_ngan"):
+            if hasattr(user, "quan_ly_chi_nhanh"):
                 return redirect("payment_list")
 
             if user.is_superuser or user.is_staff:
