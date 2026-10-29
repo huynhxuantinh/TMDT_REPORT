@@ -13,6 +13,8 @@ from django.db.models.lookups import GreaterThanOrEqual, LessThanOrEqual
 from django.db.models.signals import post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
+from django.db import transaction
+from .private_media import private_exam_storage
 
 phone_validator = RegexValidator(
     regex=r"^\d{9,15}$",
@@ -831,6 +833,17 @@ class PhieuKham(models.Model):
     def __str__(self):
         return f"Phiếu {self.benh_nhan.ho_ten} - {self.ngay_lap.date()}"
 
+    def save(self, *args, **kwargs):
+        # The canonical record, history projection and audit must commit together.
+        with transaction.atomic():
+            if self.pk:
+                previous = type(self).objects.select_for_update().get(pk=self.pk)
+                self._audit_before = {key: getattr(previous, key) for key in
+                                      ('trieu_chung', 'chan_doan', 'huong_dieu_tri')}
+            else:
+                self._audit_before = None
+            return super().save(*args, **kwargs)
+
 
 # ========================= 
 # DỊCH VỤ THỰC HIỆN TRONG PHIẾU KHÁM
@@ -878,6 +891,7 @@ class PhieuKhamHinhAnh(models.Model):
     )
     hinh_anh = models.ImageField(
         upload_to=phieu_kham_image_upload_to,
+        storage=private_exam_storage,
         validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
     )
     mo_ta = models.CharField(max_length=255, blank=True, default='')
@@ -1141,19 +1155,45 @@ class NoiDungGioiThieu(models.Model):
 # Auto log khi tạo lịch sử khám bệnh từ phiếu khám
 @receiver(post_save, sender=PhieuKham)
 def tao_lich_su_kham_benh(sender, instance, created, **kwargs):
-    """Tự động tạo lịch sử khám bệnh khi có phiếu khám mới"""
-    if created:
-        LichSuKhamBenh.objects.create(
-            benh_nhan=instance.benh_nhan,
-            bac_si=instance.lich_kham.bac_si,
-            benh_vien=instance.lich_kham.bac_si.benh_vien,
-            phieu_kham=instance,
-            ngay_kham=instance.lich_kham.ngay_kham,
-            trieu_chung=instance.trieu_chung,
-            chan_doan=instance.chan_doan,
-            huong_dieu_tri=instance.huong_dieu_tri,
-            ghi_chu=instance.lich_kham.ghi_chu
+    """Keep current history in sync and preserve previous clinical text in audit."""
+    if kwargs.get('raw'):
+        return
+    # Read persisted values: save(update_fields=...) may leave unsaved attributes.
+    persisted = sender.objects.select_related('lich_kham__bac_si').get(pk=instance.pk)
+    data = {
+        'benh_nhan_id': persisted.benh_nhan_id,
+        'bac_si_id': persisted.lich_kham.bac_si_id,
+        'benh_vien_id': persisted.lich_kham.bac_si.benh_vien_id,
+        'ngay_kham': persisted.lich_kham.ngay_kham,
+        'trieu_chung': persisted.trieu_chung,
+        'chan_doan': persisted.chan_doan,
+        'huong_dieu_tri': persisted.huong_dieu_tri,
+        'ghi_chu': persisted.lich_kham.ghi_chu,
+    }
+    histories = list(LichSuKhamBenh.objects.filter(phieu_kham=instance).select_for_update())
+    clinical_fields = ('trieu_chung', 'chan_doan', 'huong_dieu_tri')
+    new = {key: data[key] for key in clinical_fields}
+    previous = getattr(instance, '_audit_before', None)
+    if previous is not None and previous != new:
+        LogHeThong.objects.create(
+            model_name='PhieuKham', object_id=instance.pk, hanh_dong='update',
+            du_lieu_cu=previous, du_lieu_moi=new,
+            nguoi_thuc_hien=getattr(instance, '_audit_user', None),
+            ghi_chu='Cập nhật phiếu khám và đồng bộ lịch sử khám.',
         )
+    for history in histories:
+        old = {key: getattr(history, key) for key in clinical_fields}
+        if old != new and old != previous:
+            LogHeThong.objects.create(
+                model_name='LichSuKhamBenh', object_id=history.pk, hanh_dong='update',
+                du_lieu_cu=old, du_lieu_moi=new,
+                nguoi_thuc_hien=getattr(instance, '_audit_user', None),
+                ghi_chu='Đồng bộ lịch sử khám từ phiếu khám; giữ nội dung trước chỉnh sửa.',
+            )
+    if histories:
+        LichSuKhamBenh.objects.filter(phieu_kham=instance).update(**data)
+    else:
+        LichSuKhamBenh.objects.create(phieu_kham=instance, **data)
 
 
 # Auto log khi tạo lịch khám mới

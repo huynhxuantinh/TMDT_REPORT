@@ -62,7 +62,7 @@ Phản hồi JSON IPN dùng `RspCode` và `Message`: `00` đã ghi nhận, `02` 
 
 Kết quả `00/00` mới được ghi thành công. Khi transaction status là `02`, response `24` là hủy, `11` là hết hạn, các mã thất bại xác định `09/10/12/13/51/65/75/79` là thất bại và được thử lại. Với giao dịch đang chờ, mã chưa rõ, `99`, nghi ngờ gian lận, đảo giao dịch hoặc kết quả mâu thuẫn vẫn giữ chờ. Nếu nhận kết quả mâu thuẫn sau khi giao dịch đã kết thúc, hệ thống giữ bản ghi cũ và bật `can_doi_soat` để khóa lần thu mới. Đây là cách xử lý thận trọng của module, không suy diễn mọi mã khác `00` thành thất bại. [Đặc tả VNPAY](https://sandbox.vnpayment.vn/apis/docs/thanh-toan-pay/pay.html), [bảng mã](https://sandbox.vnpayment.vn/apis/docs/bang-ma-loi/).
 
-**Đóng trình duyệt, mất ngrok hoặc quá 15 phút không tự chuyển giao dịch thành thất bại.** Phải có IPN xác định kết quả. IPN đến muộn vẫn có thể xác nhận giao dịch đang chờ. Nếu VNPAY đã hết lượt gửi IPN, cần đối soát với VNPAY và khôi phục thông báo; module này chưa tự gọi QueryDR và không có nút tự mở khóa/đánh dấu đã thanh toán. Không sửa trực tiếp trạng thái database để thu lại.
+**Đóng trình duyệt, mất ngrok hoặc quá hạn không cho phép thu lại.** `pending` và `timeout` đều khóa VNPAY, tiền mặt và sửa dịch vụ. IPN hợp lệ đến muộn vẫn tất toán. Admin có thể đối soát bằng `querydr` tại màn giám sát hóa đơn: chỉ kết quả cuối cùng đã xác minh mới xử lý hóa đơn; `01` (chưa hoàn tất), mã 91 hoặc không truy vấn được đều giữ khóa. Không sửa trực tiếp trạng thái database để thu lại. Chi tiết trong [báo cáo P1](P1_BAO_MAT_THANH_TOAN.md).
 
 ## 4. URL chính xác trong source
 

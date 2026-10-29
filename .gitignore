@@ -6,6 +6,7 @@ venv/
 .env.*
 !.env.example
 media/
+private_media/
 .venv/
 .vnpay-test/
 .codex/

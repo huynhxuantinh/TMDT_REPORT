@@ -16,9 +16,11 @@ from django.core.paginator import Paginator
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.validators import validate_email
 from django.forms import modelform_factory
-from django.http import Http404, JsonResponse
+from django.http import Http404, JsonResponse, FileResponse
 from django.db import IntegrityError, transaction
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET
+from django.views.decorators.cache import never_cache
 from django.db.models.deletion import ProtectedError
 from django.db.models import Max, Q
 from django.db import models as db_models
@@ -737,6 +739,36 @@ def medical_history(request):
 # ==========================
 # CHI TIẾT PHIẾU KHÁM
 # ==========================
+@never_cache
+@login_required
+@require_GET
+def private_exam_image(request, path):
+    image = get_object_or_404(
+        PhieuKhamHinhAnh.objects.select_related('phieu_kham__lich_kham__bac_si'),
+        hinh_anh=path,
+    )
+    exam = image.phieu_kham
+    doctor = getattr(request.user, 'bac_si', None)
+    patient = _patient_for_user(request.user)
+    if not request.user.is_active or not (
+        (doctor and exam.lich_kham.bac_si_id == doctor.pk)
+        or (patient and exam.benh_nhan_id == patient.pk)
+    ):
+        raise Http404('Không tìm thấy ảnh phiếu khám.')
+    try:
+        image.hinh_anh.open('rb')
+    except FileNotFoundError:
+        raise Http404('Không tìm thấy ảnh phiếu khám.') from None
+    response = FileResponse(image.hinh_anh)
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['Content-Security-Policy'] = "default-src 'none'; sandbox"
+    return response
+
+
+def deny_public_exam_image(request, path):
+    raise Http404('Ảnh phiếu khám không được phục vụ trong media công khai.')
+
+
 @login_required
 def phieu_kham_detail(request, phieu_id):
     try:
@@ -762,6 +794,7 @@ def phieu_kham_detail(request, phieu_id):
             "phieu": phieu,
             "edit_logs": edit_logs,
             "exam_images": list(phieu.hinh_anhs.all()),
+            **exam_billing_context(phieu),
         })
 
     benh_nhan = _patient_for_user(request.user)
@@ -1137,6 +1170,7 @@ ADMIN_MODEL_CONFIG = {
         "ordering": ("-ngay_kham", "-ngay_tao"),
     },
     "log-lich-kham": {
+        "read_only": True,
         "title": "Log lịch khám",
         "model": LogLichKham,
         "list_display": ("lich_kham", "hanh_dong", "trang_thai_cu", "trang_thai_moi", "nguoi_thuc_hien", "thoi_gian"),
@@ -1145,6 +1179,7 @@ ADMIN_MODEL_CONFIG = {
         "ordering": ("-thoi_gian",),
     },
     "log-he-thong": {
+        "read_only": True,
         "title": "Log hệ thống",
         "model": LogHeThong,
         "list_display": ("model_name", "object_id", "hanh_dong", "nguoi_thuc_hien", "thoi_gian"),
@@ -1659,7 +1694,7 @@ def custom_admin_model_list(request, model_key):
         {
             "id": obj.pk,
             "values": [_list_column_value(obj, col) for col in list_display],
-            "can_manage": not (model_key == 'tai-khoan' and obj.is_superuser),
+            "can_manage": not config.get('read_only') and not (model_key == 'tai-khoan' and obj.is_superuser),
         }
         for obj in page_obj.object_list
     ]
@@ -1668,6 +1703,7 @@ def custom_admin_model_list(request, model_key):
         "title": f"Quản trị {config['title']}",
         "model_key": model_key,
         "model_label": config["title"],
+        "read_only": config.get('read_only', False),
         "q": keyword,
         "columns": columns,
         "rows": rows,
@@ -1688,6 +1724,8 @@ def custom_admin_model_create(request, model_key):
     if denied:
         return denied
     config = _get_admin_config(model_key)
+    if config.get('read_only'):
+        raise PermissionDenied('Nhật ký kiểm toán chỉ được xem.')
     if model_key == 'tai-khoan':
         _require_account_superuser(request)
     form_class = _get_admin_form_class(config)
@@ -1720,6 +1758,8 @@ def custom_admin_model_create(request, model_key):
 
         if form.is_valid():
             with transaction.atomic():
+                if is_exam_record:
+                    form.instance._audit_user = request.user
                 obj = form.save()
                 if is_hospital:
                     _save_hospital_schedule_rows(obj, schedule_rows)
@@ -1754,6 +1794,8 @@ def custom_admin_model_edit(request, model_key, pk):
     if denied:
         return denied
     config = _get_admin_config(model_key)
+    if config.get('read_only'):
+        raise PermissionDenied('Nhật ký kiểm toán chỉ được xem.')
     model = config["model"]
     obj = get_object_or_404(model, pk=pk)
     if model_key == 'tai-khoan':
@@ -1802,6 +1844,8 @@ def custom_admin_model_edit(request, model_key, pk):
 
         if form.is_valid():
             with transaction.atomic():
+                if is_exam_record:
+                    form.instance._audit_user = request.user
                 updated_obj = form.save()
                 if is_hospital:
                     _save_hospital_schedule_rows(updated_obj, schedule_rows)
@@ -1849,6 +1893,8 @@ def custom_admin_model_delete(request, model_key, pk):
     if denied:
         return denied
     config = _get_admin_config(model_key)
+    if config.get('read_only'):
+        raise PermissionDenied('Nhật ký kiểm toán chỉ được xem.')
     obj = get_object_or_404(config["model"], pk=pk)
     if model_key == 'tai-khoan':
         _require_account_superuser(request, obj, deleting=True)
@@ -2312,14 +2358,19 @@ def bac_si_patient_detail(request, benh_nhan_id):
 
     co_lich = LichKham.objects.filter(
         bac_si=bac_si,
-        benh_nhan=benh_nhan
+        benh_nhan=benh_nhan,
+        trang_thai__in=['cho', 'dang', 'xong'],
     ).exists()
     if not co_lich:
         messages.error(request, "Bác sĩ không có lịch khám với bệnh nhân này.")
         return redirect("bac_si_home")
 
     lich_su = LichSuKhamBenh.objects.filter(
-        benh_nhan=benh_nhan
+        benh_nhan=benh_nhan,
+        bac_si=bac_si,
+        benh_vien=bac_si.benh_vien,
+        phieu_kham__lich_kham__bac_si=bac_si,
+        phieu_kham__benh_nhan=benh_nhan,
     ).select_related("bac_si", "benh_vien", "phieu_kham").order_by("-ngay_kham", "-ngay_tao")
 
     return render(request, "core/doctor_patient_detail.html", {
@@ -2520,17 +2571,6 @@ def bac_si_phieu_kham_edit(request, phieu_id):
         if not trieu_chung or not chan_doan or not huong_dieu_tri:
             messages.error(request, "Vui lòng nhập đầy đủ thông tin.")
             return render_exam_edit()
-        old_data = {
-            "trieu_chung": phieu.trieu_chung,
-            "chan_doan": phieu.chan_doan,
-            "huong_dieu_tri": phieu.huong_dieu_tri,
-        }
-        new_data = {
-            "trieu_chung": trieu_chung,
-            "chan_doan": chan_doan,
-            "huong_dieu_tri": huong_dieu_tri,
-        }
-
         try:
             with transaction.atomic():
                 get_object_or_404(LichKham.objects.select_for_update(), pk=phieu.lich_kham_id, bac_si=bac_si)
@@ -2538,6 +2578,7 @@ def bac_si_phieu_kham_edit(request, phieu_id):
                 phieu.trieu_chung = trieu_chung
                 phieu.chan_doan = chan_doan
                 phieu.huong_dieu_tri = huong_dieu_tri
+                phieu._audit_user = request.user
                 phieu.save()
 
                 if remove_image_ids:
@@ -2560,17 +2601,6 @@ def bac_si_phieu_kham_edit(request, phieu_id):
         except ValidationError:
             messages.error(request, "Ảnh tải lên không hợp lệ. Vui lòng dùng JPG, PNG hoặc WEBP.")
             return render_exam_edit()
-
-        if old_data != new_data:
-            LogHeThong.objects.create(
-                model_name="PhieuKham",
-                object_id=phieu.id,
-                hanh_dong="update",
-                du_lieu_cu=old_data,
-                du_lieu_moi=new_data,
-                nguoi_thuc_hien=request.user,
-                ghi_chu="Cập nhật phiếu khám",
-            )
 
         messages.success(request, "Đã cập nhật phiếu khám.")
         return redirect("phieu_kham_detail", phieu_id=phieu.id)

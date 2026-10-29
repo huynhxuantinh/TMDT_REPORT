@@ -156,6 +156,7 @@ SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 STATIC_URL = 'static/'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+PRIVATE_MEDIA_ROOT = BASE_DIR / 'private_media'
 
 import os
 GDAL_LIBRARY_PATH = os.getenv('GDAL_PATH')

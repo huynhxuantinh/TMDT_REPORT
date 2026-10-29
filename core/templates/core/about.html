@@ -369,9 +369,13 @@
 
             const bounds = [];
             mapData.forEach((item) => {
+                const popup = document.createElement('div');
+                const title = document.createElement('strong');
+                title.textContent = item.name;
+                popup.append(title, document.createElement('br'), document.createTextNode(item.phuong || ''));
                 L.marker([item.lat, item.lon])
                     .addTo(map)
-                    .bindPopup(`<strong>${item.name}</strong><br>${item.phuong || ""}`);
+                    .bindPopup(popup);
                 bounds.push([item.lat, item.lon]);
             });
 

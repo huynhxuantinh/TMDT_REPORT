@@ -9,6 +9,7 @@ from django.urls import include, path, re_path
 from core import views as core_views
 
 urlpatterns = [
+    path('media/phieu_kham/<path:path>', core_views.deny_public_exam_image),
     path("", include("core.urls")),
 ]
 

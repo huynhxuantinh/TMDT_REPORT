@@ -233,18 +233,21 @@ class CashPaymentTests(CashierFixtures, TestCase):
             self.cash(invoice)
         self.assertEqual(GiaoDichThanhToan.objects.count(), 1)
 
-    def test_pending_local_expiry_allows_cash_and_keeps_late_result_for_reconciliation(self):
-        invoice = self.invoice()
+    def test_pending_local_expiry_blocks_cash_until_provider_confirms(self):
+        self.record()
+        invoice = bill_exam(self.phieu.pk, self.cashier)
         attempt, _ = start_payment(invoice.pk, self.cashier, '127.0.0.1')
         GiaoDichThanhToan.objects.filter(pk=attempt.pk).update(het_han_luc=timezone.now() - datetime.timedelta(days=1))
-        cash = self.cash(invoice)
-        self.assertEqual(cash.trang_thai, 'success')
+        with self.assertRaises(PaymentError):
+            self.cash(invoice)
         attempt.refresh_from_db()
-        self.assertEqual(attempt.trang_thai, 'timeout')
+        self.assertEqual(attempt.trang_thai, 'pending')  # failed collection rolled back
         self.assertEqual(process_ipn(callback(attempt, '99', '02'))[0], '99')
         invoice.refresh_from_db()
-        self.assertTrue(invoice.can_doi_soat)
-        self.assertEqual(GiaoDichThanhToan.objects.count(), 2)
+        self.assertEqual(invoice.trang_thai, 'unpaid')
+        self.assertEqual(GiaoDichThanhToan.objects.count(), 1)
+        with self.assertRaises(PaymentError):
+            self.cash(invoice)
 
     def test_reconciliation_blocks_cash(self):
         invoice = self.invoice()

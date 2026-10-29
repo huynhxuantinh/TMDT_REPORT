@@ -31,7 +31,7 @@
             <span class="layer-label">Đối soát</span>
             {% if refund_required %}
                 <span class="status-badge" data-tone="danger">Thu trùng — cần hoàn tiền</span>
-            {% elif invoice.can_doi_soat %}
+            {% elif invoice.can_doi_soat or overdue_pending %}
                 <span class="status-badge" data-tone="danger">Cần đối soát</span>
             {% else %}
                 <span class="status-badge" data-tone="paid">Không có tranh chấp</span>
@@ -126,7 +126,7 @@
     <h2>Thanh toán</h2>
     {% if can_resolve_reconciliation %}
     <form method="post" action="{% url 'cashier_monitor_reconcile_close' invoice.pk %}">{% csrf_token %}
-        <p class="notice">Hệ thống sẽ gọi VNPAY <strong>querydr</strong> cho từng giao dịch của hóa đơn này. Chỉ khi VNPAY xác nhận chưa thanh toán mới được mở khóa; nếu VNPAY báo đã thu tiền, hóa đơn được ghi nhận thanh toán và giữ khóa. Lý do và mã tham chiếu được lưu vào nhật ký.</p>
+        <p class="notice">Hệ thống gọi VNPAY <strong>querydr</strong> cho từng giao dịch. Chỉ xác nhận thất bại cuối cùng mới cho phép thu lại. Kết quả chưa hoàn tất hoặc không xác minh được tiếp tục giữ khóa; nếu đã thu tiền, hệ thống ghi nhận thanh toán. Lý do và mã tham chiếu được lưu vào nhật ký.</p>
         {% for attempt in attempts %}
             <p class="muted">Giao dịch <code>{{ attempt.ma_tham_chieu }}</code> · {{ attempt.get_trang_thai_display }}{% if attempt.ma_giao_dich_vnpay %} · mã VNPAY <code>{{ attempt.ma_giao_dich_vnpay }}</code>{% endif %}</p>
         {% endfor %}
@@ -134,14 +134,14 @@
             <textarea id="reconcile-reason" name="reason" rows="2" required minlength="10" maxlength="500"></textarea></p>
         <p><label for="reconcile-reference">Mã tham chiếu đã kiểm tra (bắt buộc)</label>
             <input id="reconcile-reference" name="reference" type="text" required maxlength="32" autocomplete="off"></p>
-        <button type="submit">Ket thuc doi soat, mo khoa hoa don</button>
+        <button type="submit">Đối soát kết quả với VNPAY</button>
     </form>
     {% endif %}
     {% if refund_required %}
         <p class="notice">Đã khóa mọi lần thu mới vì có khoản thu trùng. Không thực hiện thêm giao dịch; chuyển hồ sơ cho kế toán hoàn tiền.</p>
     {% elif invoice.can_doi_soat %}<p class="notice">Có kết quả VNPAY mâu thuẫn. Đã khóa lần thu mới; cần đối soát với VNPAY trước khi xử lý tiếp.</p>{% endif %}
     {% if pending %}<p class="notice">Đang chờ xác nhận thanh toán. Vui lòng tải lại trạng thái sau ít phút.{% if show_technical %} Hệ thống vẫn khóa thu tiền trong thời gian chờ IPN; hết thời gian chờ, giao dịch chuyển sang “quá hạn chờ IPN” (không phải VNPAY báo hết hạn) và có thể chạy <code>manage.py expire_vnpay_payments</code>.{% endif %}</p>{% endif %}
-    {% if overdue_pending %}<p class="notice">Đã hết thời gian chờ IPN nhưng giao dịch chưa được đóng. Thao tác tiếp theo sẽ chuyển giao dịch sang “quá hạn chờ IPN”; nếu chưa có kết quả từ VNPAY, quầy có thể thu lại.</p>{% endif %}
+    {% if overdue_pending %}<p class="notice">Đã quá hạn chờ IPN nhưng chưa xác định được kết quả. Tiếp tục khóa tiền mặt, VNPAY và sửa dịch vụ để tránh thu trùng. Admin cần đối soát với VNPAY; chỉ được thu lại khi có xác nhận thất bại cuối cùng.</p>{% endif %}
     {% if can_start %}
         <p>Thực hiện tại quầy khi bệnh nhân có mặt. Số tiền được lấy từ hóa đơn đã lưu.</p>
         <form method="post" action="{% url 'payment_start' invoice.pk %}">{% csrf_token %}

@@ -150,8 +150,21 @@ class LichSuKhamBenhAdmin(admin.ModelAdmin):
     ordering = ("-ngay_kham", "-ngay_tao")
 
 
+class ReadOnlyAuditAdmin(admin.ModelAdmin):
+    actions = None
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
 @admin.register(LogLichKham)
-class LogLichKhamAdmin(admin.ModelAdmin):
+class LogLichKhamAdmin(ReadOnlyAuditAdmin):
     list_display = (
         "lich_kham",
         "hanh_dong",
@@ -171,7 +184,7 @@ class LogLichKhamAdmin(admin.ModelAdmin):
 
 
 @admin.register(LogHeThong)
-class LogHeThongAdmin(admin.ModelAdmin):
+class LogHeThongAdmin(ReadOnlyAuditAdmin):
     list_display = ("model_name", "object_id", "hanh_dong", "nguoi_thuc_hien", "thoi_gian")
     search_fields = ("model_name", "object_id", "ghi_chu")
     list_filter = ("model_name", "hanh_dong", "thoi_gian")

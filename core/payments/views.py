@@ -55,8 +55,8 @@ def payment_list(request, monitor=False):
     appointments = scoped_appointments(request.user).filter(trang_thai='xong', phieu_kham__isnull=False).select_related(
         'benh_nhan', 'bac_si__benh_vien', 'hoa_don'
     ).prefetch_related('hoa_don__giao_dichs').annotate(
-        payment_pending=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai='pending')),
-        payment_failed=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai__in=['failed', 'cancelled', 'expired', 'timeout'])),
+        payment_pending=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai__in=['pending', 'timeout'])),
+        payment_failed=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai__in=payment_state.RELEASABLE)),
         payment_refund=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai='duplicate')),
     ).order_by('-ngay_kham', '-pk')
     query = request.GET.get('q', '').strip()[:100]
@@ -97,10 +97,11 @@ def payment_detail(request, lich_id, monitor=False):
     except vnpay.PaymentError as exc:
         completion_error = str(exc)
     now = timezone.now()
-    pending = any(attempt.trang_thai == 'pending' and payment_state.blocks_new_charge(attempt, now)
+    pending = any(attempt.trang_thai in ('pending', 'timeout')
                   for attempt in attempts)
-    overdue_pending = any(attempt.trang_thai == 'pending' and not payment_state.blocks_new_charge(attempt, now)
-                          for attempt in attempts)
+    overdue_pending = any(attempt.trang_thai == 'timeout' or (
+        attempt.trang_thai == 'pending' and payment_state.grace_deadline(attempt) is not None
+        and now >= payment_state.grace_deadline(attempt)) for attempt in attempts)
     refund_attempt = next((attempt for attempt in attempts
                            if attempt.trang_thai == GiaoDichThanhToan.TrangThai.THU_TRUNG), None)
     config_error = vnpay.configuration_error()
@@ -150,7 +151,7 @@ def payment_detail(request, lich_id, monitor=False):
         'config_error': '' if invoice and invoice.hoan_tat_bhyt else (config_error if show_technical else ('Cổng thanh toán hiện chưa sẵn sàng. Vui lòng liên hệ Admin.' if config_error else '')),
         'can_start': available and not config_error and not amount_error,
         'can_edit_services': can_edit_services,
-        'can_resolve_reconciliation': bool(monitor and invoice and invoice.can_doi_soat
+        'can_resolve_reconciliation': bool(monitor and invoice and (invoice.can_doi_soat or overdue_pending)
                                            and not refund_attempt and can_admin(request.user)),
         'show_technical': show_technical,
         'service_phieu': phieu,

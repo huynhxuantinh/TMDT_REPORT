@@ -15,7 +15,7 @@
         <div class="head" style="padding:12px 14px; border-bottom:1px solid #e5efea;">
             <h1 style="font-size:20px;">{{ title }}</h1>
             <div class="actions">
-                <a class="btn primary" href="{% url 'custom_admin_model_create' model_key %}">+ Tạo mới</a>
+                {% if not read_only %}<a class="btn primary" href="{% url 'custom_admin_model_create' model_key %}">+ Tạo mới</a>{% endif %}
                 <a class="btn" href="{% url 'custom_admin_dashboard' %}">Bảng điều khiển</a>
             </div>
         </div>

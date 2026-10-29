@@ -7,6 +7,7 @@ from .insurance import views as insurance_views
 from .receipts import views as receipt_views
 
 urlpatterns = [
+    path('benh-an/anh/<path:path>', views.private_exam_image, name='private_exam_image'),
     path('thanh-toan/hoa-don/<int:invoice_id>/phieu/xem/', receipt_views.receipt_pdf, name='receipt_view'),
     path('thanh-toan/hoa-don/<int:invoice_id>/phieu/tai/', receipt_views.receipt_pdf, {'download': True}, name='receipt_download'),
     path('thanh-toan/hoa-don/<int:invoice_id>/phieu/in/', receipt_views.receipt_print, name='receipt_print'),
