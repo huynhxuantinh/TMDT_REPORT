@@ -216,8 +216,20 @@ def payment_cash(request, invoice_id):
 def reconciliation_close(request, invoice_id):
     invoice = get_object_or_404(HoaDon, pk=invoice_id)
     try:
-        services.resolve_reconciliation(invoice.pk, request.user)
-        messages.success(request, 'Da ket thuc doi soat va mo lai hoa don de thu tien.')
+        outcome = services.resolve_reconciliation(
+            invoice.pk, request.user,
+            reason=request.POST.get('reason', ''),
+            reference=request.POST.get('reference', ''),
+            ip_address=request.META.get('REMOTE_ADDR', ''),
+        )
+        if outcome == 'settled':
+            messages.success(request, 'VNPAY xác nhận đã thu tiền: hệ thống đã ghi nhận thanh toán, hóa đơn vẫn khóa để không thu thêm.')
+        elif outcome == 'duplicate':
+            messages.warning(request, 'VNPAY xác nhận đã thu tiền trong khi hóa đơn đã thanh toán bằng nguồn khác: ghi nhận thu trùng, cần hoàn tiền. Hóa đơn vẫn khóa.')
+        elif outcome == 'paid':
+            messages.success(request, 'VNPAY xác nhận chưa thanh toán. Hóa đơn đã thanh toán bằng nguồn khác nên vẫn khóa; đã gỡ cờ đối soát.')
+        else:
+            messages.success(request, 'VNPAY xác nhận chưa thanh toán. Đã kết thúc đối soát và mở lại hóa đơn để thu tiền.')
     except vnpay.PaymentError as exc:
         messages.error(request, str(exc))
     return redirect('cashier_monitor_detail', lich_id=invoice.lich_kham_id)

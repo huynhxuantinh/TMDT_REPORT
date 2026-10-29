@@ -397,6 +397,8 @@ IPN: `/thanh-toan/vnpay/ipn/`. ReturnURL: `/thanh-toan/vnpay/return/`. Chỉ IPN
 
 **IPN đến muộn:** hết hạn nội bộ không còn đồng nghĩa với "VNPAY báo hết hạn". Sau `het_han_luc`, hệ thống giữ khóa thu tiền thêm `VNPAY_IPN_GRACE_MINUTES` (mặc định 45 phút); quá thời gian đó giao dịch mới chuyển sang trạng thái `timeout` (chưa có kết quả), còn `expired` chỉ dùng khi VNPAY trả mã 11. IPN thành công đến sau vẫn tất toán hóa đơn nếu còn nợ; nếu hóa đơn đã thu bằng tiền mặt/lần khác, giao dịch được ghi là **thu trùng — cần hoàn tiền**, khóa mọi lần thu mới và không cho Admin mở khóa đối soát.
 
+**Kết thúc đối soát phải có bằng chứng:** nút "Kết thúc đối soát" yêu cầu nhập lý do (≥10 ký tự) và mã tham chiếu thuộc đúng hóa đơn đó, rồi gọi VNPAY `querydr` (`VNPAY_QUERY_URL`) cho **từng** giao dịch VNPAY của hóa đơn. Chỉ khi mọi giao dịch được VNPAY xác nhận chưa thanh toán mới mở lại hóa đơn. Nếu VNPAY báo đã thu tiền, hệ thống ghi nhận thanh toán (hoặc thu trùng nếu hóa đơn đã trả bằng nguồn khác) và giữ khóa. Nếu không kết nối được, chữ ký sai, mã 91 (không tìm thấy) hoặc số tiền lệch, hệ thống **từ chối** kết thúc đối soát — không coi "không kiểm tra được" là "chưa thu tiền".
+
 **TASK 06 — Thu ngân và tiền mặt:** Admin tạo/phân công thu ngân tại `/quan-tri/thu-ngan/`; thu ngân dùng `/thanh-toan/` trong phạm vi một bệnh viện. Hỗ trợ thu đủ bằng tiền mặt, kể cả số phải trả 1–4.999đ, dùng chung khóa chống thu trùng với VNPAY. Admin giám sát toàn hệ thống tại `/quan-tri/thu-ngan/hoa-don/`. Xem [hướng dẫn và báo cáo TASK 06](docs/TASK06_THU_NGAN_TIEN_MAT.md).
 
 ## Ghi chú kỹ thuật

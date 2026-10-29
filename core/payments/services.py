@@ -21,11 +21,13 @@ def _apply_vnpay_result(attempt, params):
     attempt.vnp_pay_date = params.get('vnp_PayDate', '')
 
 
-def _log_attempt(attempt, before, note, actor=None):
+def _log_attempt(attempt, before, note, actor=None, extra=None):
     LogHeThong.objects.create(
         model_name='GiaoDichThanhToan', object_id=attempt.pk, hanh_dong='update',
         du_lieu_cu=before,
-        du_lieu_moi={'trang_thai': attempt.trang_thai, 'hoan_tat_luc': attempt.hoan_tat_luc.isoformat()},
+        du_lieu_moi={'trang_thai': attempt.trang_thai,
+                     'hoan_tat_luc': attempt.hoan_tat_luc.isoformat() if attempt.hoan_tat_luc else None,
+                     **(extra or {})},
         nguoi_thuc_hien=actor, ghi_chu=note,
     )
 
@@ -74,34 +76,148 @@ def expire_due_payments(*, now=None):
     return sum(expire_pending_payment(payment_id, now=now) is not None for payment_id in payment_ids)
 
 
-@transaction.atomic
-def resolve_reconciliation(invoice_id, user):
-    """Admin-only closure after independently checking that no VNPAY payment succeeded."""
+def resolve_reconciliation(invoice_id, user, *, reason, reference, ip_address=''):
+    """Admin-only closure, allowed only with provider evidence.
+
+    Every attempt of the invoice is checked with VNPAY querydr first. Closing is
+    refused when any attempt reports that money moved, and also when the check
+    cannot be verified: "cannot prove" must never be read as "no payment".
+    """
     from .access import can_admin
 
     if not can_admin(user):
         raise PermissionDenied('Chi Admin giam sat moi duoc ket thuc doi soat VNPAY.')
-    appointment_id = HoaDon.objects.values_list('lich_kham_id', flat=True).get(pk=invoice_id)
-    LichKham.objects.select_for_update().get(pk=appointment_id)
-    invoice = HoaDon.objects.select_for_update().get(pk=invoice_id)
+    reason = (reason or '').strip()
+    reference = (reference or '').strip()
+    if len(reason) < 10:
+        raise vnpay.PaymentError('Phải ghi lý do đối soát cụ thể (ít nhất 10 ký tự) để lưu làm bằng chứng.')
+    if len(reason) > 500:
+        raise vnpay.PaymentError('Lý do đối soát quá dài (tối đa 500 ký tự).')
+    invoice = HoaDon.objects.get(pk=invoice_id)
+    _reconciliation_precheck(invoice, reference)
+    # Network calls happen before any row is locked or modified.
+    checks = _query_all_attempts(invoice, reference, ip_address)
+    return _apply_reconciliation(invoice_id, user, reason, reference, checks)
+
+
+def _reconciliation_precheck(invoice, reference):
     if not invoice.can_doi_soat:
         raise vnpay.PaymentError('Hoa don nay khong o trang thai can doi soat.')
-    if invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN:
-        raise vnpay.PaymentError('Hoa don da thanh toan, khong the mo khoa thu cong.')
     if invoice.giao_dichs.filter(trang_thai=GiaoDichThanhToan.TrangThai.THU_TRUNG).exists():
         # Money was taken twice; releasing the invoice would let the patient pay a third time.
         raise vnpay.PaymentError('Hoa don co khoan thu trung can hoan tien; khong duoc mo khoa de thu tiep.')
-    for attempt in GiaoDichThanhToan.objects.select_for_update().filter(
-        hoa_don=invoice, phuong_thuc='VNPAY', trang_thai='pending',
-    ):
-        before = {'trang_thai': attempt.trang_thai}
-        attempt.trang_thai = GiaoDichThanhToan.TrangThai.QUA_HAN_CHO
-        attempt.hoan_tat_luc = timezone.now()
-        attempt.save(update_fields=['trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
+    attempts = list(GiaoDichThanhToan.objects.filter(hoa_don=invoice, phuong_thuc='VNPAY'))
+    if not attempts:
+        raise vnpay.PaymentError('Hoa don chua co giao dich VNPAY nao de doi soat.')
+    if reference.lower() not in {attempt.ma_tham_chieu.lower() for attempt in attempts}:
+        raise vnpay.PaymentError(
+            'Mã tham chiếu đã kiểm tra không thuộc hóa đơn này. Hãy nhập đúng mã giao dịch VNPAY của hóa đơn.')
+    return attempts
+
+
+def _query_outcome(result, attempt):
+    """Turn a verified querydr answer into paid / unpaid / failed / unknown."""
+    amount = result.get('vnp_Amount', '')
+    if amount and (not amount.isdigit() or int(amount) != int(attempt.so_tien) * 100):
+        return 'unknown'
+    if result.get('vnp_ResponseCode', '') != '00':
+        # 91 = not found; anything else is not an answer we can rely on.
+        return 'unknown'
+    return {'00': 'paid', '01': 'unpaid', '02': 'failed'}.get(
+        result.get('vnp_TransactionStatus', ''), 'unknown')
+
+
+def _query_all_attempts(invoice, reference, ip_address):
+    checks = []
+    for attempt in GiaoDichThanhToan.objects.filter(hoa_don=invoice, phuong_thuc='VNPAY').order_by('pk'):
+        result = vnpay.query_transaction(attempt, ip_address or '127.0.0.1')
+        outcome = _query_outcome(result, attempt)
+        if outcome == 'unknown':
+            raise vnpay.PaymentError(
+                f'VNPAY chưa xác nhận được kết quả giao dịch {attempt.ma_tham_chieu} '
+                f'(mã {result.get("vnp_ResponseCode", "?")}/{result.get("vnp_TransactionStatus", "?")}). '
+                'Chưa thể kết thúc đối soát.')
+        checks.append({
+            'pk': attempt.pk, 'outcome': outcome, 'result': result,
+            'before': (attempt.trang_thai, attempt.ma_giao_dich_vnpay),
+        })
+    return checks
+
+
+def _querydr_params(result):
+    return {
+        'vnp_ResponseCode': result.get('vnp_ResponseCode', '00'),
+        'vnp_TransactionStatus': result.get('vnp_TransactionStatus', '00'),
+        'vnp_TransactionNo': result.get('vnp_TransactionNo', ''),
+        'vnp_PayDate': result.get('vnp_PayDate', ''),
+    }
+
+
+def _query_evidence(check):
+    result = check['result']
+    return {
+        'querydr_response_code': result.get('vnp_ResponseCode', ''),
+        'querydr_transaction_status': result.get('vnp_TransactionStatus', ''),
+        'querydr_transaction_no': result.get('vnp_TransactionNo', ''),
+        'querydr_pay_date': result.get('vnp_PayDate', ''),
+        'querydr_outcome': check['outcome'],
+    }
+
+
+@transaction.atomic
+def _apply_reconciliation(invoice_id, user, reason, reference, checks):
+    appointment_id = HoaDon.objects.values_list('lich_kham_id', flat=True).get(pk=invoice_id)
+    LichKham.objects.select_for_update().get(pk=appointment_id)
+    invoice = HoaDon.objects.select_for_update().get(pk=invoice_id)
+    _reconciliation_precheck(invoice, reference)
+
+    locked = {}
+    for check in checks:
+        attempt = GiaoDichThanhToan.objects.select_for_update().get(pk=check['pk'])
+        if (attempt.trang_thai, attempt.ma_giao_dich_vnpay) != check['before']:
+            # The attempt moved between the VNPAY query and this lock; evidence is stale.
+            raise vnpay.PaymentError('Giao dịch VNPAY vừa thay đổi trong lúc đối soát. Tải lại trang và kiểm tra lại.')
+        locked[check['pk']] = attempt
+
+    settled = False
+    for check in checks:
+        if check['outcome'] != 'paid':
+            continue
+        _settle_after_local_timeout(invoice, locked[check['pk']], _querydr_params(check['result']),
+                                   'success', actor=user,
+                                   note=('VNPAY querydr xac nhan da thu tien; he thong ghi nhan thanh toan '
+                                         'thay vi mo khoa hoa don.'))
+        settled = True
+
+    if settled:
+        duplicate = invoice.giao_dichs.filter(
+            trang_thai=GiaoDichThanhToan.TrangThai.THU_TRUNG).exists()
+        if invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN and not duplicate:
+            invoice.can_doi_soat = False
+            invoice.save(update_fields=['can_doi_soat', 'ngay_cap_nhat'])
+        LogHeThong.objects.create(
+            model_name='HoaDon', object_id=invoice.pk, hanh_dong='update',
+            du_lieu_cu={'can_doi_soat': True},
+            du_lieu_moi={'can_doi_soat': invoice.can_doi_soat, 'querydr': 'paid', 'reference': reference},
+            nguoi_thuc_hien=user,
+            ghi_chu=(f'Doi soat VNPAY (querydr) phat hien da thu tien'
+                     f'{" va co khoan thu trung" if duplicate else ""}. Ly do admin: {reason}'),
+        )
+        return 'duplicate' if duplicate else 'settled'
+
+    now = timezone.now()
+    for check in checks:
+        attempt = locked[check['pk']]
+        before = {'trang_thai': attempt.trang_thai, 'het_han_luc': attempt.het_han_luc.isoformat()
+                  if attempt.het_han_luc else None}
+        if attempt.trang_thai == 'pending':
+            attempt.trang_thai = GiaoDichThanhToan.TrangThai.QUA_HAN_CHO
+            attempt.hoan_tat_luc = now
+            attempt.save(update_fields=['trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
         _log_attempt(
             attempt, before,
-            'Admin ket thuc doi soat sau khi xac nhan khong co giao dich VNPAY thanh cong.',
-            user,
+            f'Admin ket thuc doi soat. Ly do: {reason}. VNPAY querydr bao khong co tien chuyen.',
+            user, extra=_query_evidence(check),
         )
     invoice.can_doi_soat = False
     invoice.save(update_fields=['can_doi_soat', 'ngay_cap_nhat'])
@@ -109,9 +225,11 @@ def resolve_reconciliation(invoice_id, user):
         model_name='HoaDon', object_id=invoice.pk, hanh_dong='update',
         du_lieu_cu={'can_doi_soat': True}, du_lieu_moi={'can_doi_soat': False},
         nguoi_thuc_hien=user,
-        ghi_chu='Admin ket thuc doi soat VNPAY sau khi kiem tra khong co giao dich thanh cong.',
+        ghi_chu=(f'Admin ket thuc doi soat VNPAY sau khi querydr xac nhan chua thanh toan. '
+                 f'Ly do: {reason}. Ma tham chieu da kiem tra: {reference}.'),
     )
-    return invoice
+    # A paid invoice stays paid: closing only removes the doubt flag, it never unlocks.
+    return 'paid' if invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN else ''
 
 
 def require_completed(appointment):
@@ -243,8 +361,8 @@ def validate_callback(params, payment):
     return None
 
 
-def _settle_after_local_timeout(invoice, attempt, params, outcome):
-    """Apply an IPN that arrived after this attempt stopped waiting.
+def _settle_after_local_timeout(invoice, attempt, params, outcome, *, actor=None, note=''):
+    """Apply a verified result that arrived after this attempt stopped waiting.
 
     VNPAY alone decides whether money moved. Our local timer running out is not
     evidence of anything, so a verified success still settles the invoice; if
@@ -260,7 +378,8 @@ def _settle_after_local_timeout(invoice, attempt, params, outcome):
         attempt.trang_thai = outcome
         attempt.save(update_fields=['ma_phan_hoi', 'trang_thai_vnpay', 'ma_giao_dich_vnpay',
                                     'vnp_pay_date', 'trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
-        _log_attempt(attempt, before, f'IPN den sau thoi gian cho: VNPAY bao {outcome}; khong co tien chuyen.')
+        _log_attempt(attempt, before, f'IPN den sau thoi gian cho: VNPAY bao {outcome}; khong co tien chuyen.',
+                     actor)
         return '00', 'Confirm Success'
     if invoice.so_tien != attempt.so_tien:
         return '04', 'Invalid amount'
@@ -275,11 +394,13 @@ def _settle_after_local_timeout(invoice, attempt, params, outcome):
         invoice.save(update_fields=['can_doi_soat', 'ngay_cap_nhat'])
         _log_attempt(
             attempt, before,
-            'Thu trung: IPN thanh cong den sau khi hoa don da thanh toan. Can hoan tien cho benh nhan.',
+            'Thu trung: VNPAY xac nhan thanh cong sau khi hoa don da thanh toan. Can hoan tien cho benh nhan.',
+            actor,
         )
         LogHeThong.objects.create(
             model_name='HoaDon', object_id=invoice.pk, hanh_dong='update',
             du_lieu_cu={'can_doi_soat': False}, du_lieu_moi={'can_doi_soat': True},
+            nguoi_thuc_hien=actor,
             ghi_chu='Phat hien thu trung VNPAY sau khi hoa don da thanh toan; khoa thu tien va can hoan tien.',
         )
         return '00', 'Duplicate payment recorded; refund required'
@@ -288,8 +409,11 @@ def _settle_after_local_timeout(invoice, attempt, params, outcome):
                                 'vnp_pay_date', 'trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
     invoice.trang_thai = HoaDon.TrangThai.DA_THANH_TOAN
     invoice.ngay_thanh_toan = now
-    invoice.save(update_fields=['trang_thai', 'ngay_thanh_toan', 'ngay_cap_nhat'])
-    _log_attempt(attempt, before, 'IPN thanh cong den sau thoi gian cho; ghi nhan hoa don da thanh toan.')
+    # Provider evidence just replaced the doubt that flagged this invoice.
+    invoice.can_doi_soat = False
+    invoice.save(update_fields=['trang_thai', 'ngay_thanh_toan', 'can_doi_soat', 'ngay_cap_nhat'])
+    _log_attempt(attempt, before,
+                 note or 'IPN thanh cong den sau thoi gian cho; ghi nhan hoa don da thanh toan.', actor)
     from core.receipts.delivery import schedule_confirmation
     schedule_confirmation(invoice)
     return '00', 'Confirm Success'

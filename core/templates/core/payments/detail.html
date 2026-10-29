@@ -125,7 +125,14 @@
     <h2>Thanh toán</h2>
     {% if can_resolve_reconciliation %}
     <form method="post" action="{% url 'cashier_monitor_reconcile_close' invoice.pk %}">{% csrf_token %}
-        <p class="notice">Chi bam sau khi da kiem tra VNPAY va xac nhan khong co giao dich thanh cong. Thao tac duoc ghi log va mo lai hoa don.</p>
+        <p class="notice">Hệ thống sẽ gọi VNPAY <strong>querydr</strong> cho từng giao dịch của hóa đơn này. Chỉ khi VNPAY xác nhận chưa thanh toán mới được mở khóa; nếu VNPAY báo đã thu tiền, hóa đơn được ghi nhận thanh toán và giữ khóa. Lý do và mã tham chiếu được lưu vào nhật ký.</p>
+        {% for attempt in attempts %}
+            <p class="muted">Giao dịch <code>{{ attempt.ma_tham_chieu }}</code> · {{ attempt.get_trang_thai_display }}{% if attempt.ma_giao_dich_vnpay %} · mã VNPAY <code>{{ attempt.ma_giao_dich_vnpay }}</code>{% endif %}</p>
+        {% endfor %}
+        <p><label for="reconcile-reason">Lý do đối soát (bắt buộc, ít nhất 10 ký tự)</label>
+            <textarea id="reconcile-reason" name="reason" rows="2" required minlength="10" maxlength="500"></textarea></p>
+        <p><label for="reconcile-reference">Mã tham chiếu đã kiểm tra (bắt buộc)</label>
+            <input id="reconcile-reference" name="reference" type="text" required maxlength="32" autocomplete="off"></p>
         <button type="submit">Ket thuc doi soat, mo khoa hoa don</button>
     </form>
     {% endif %}

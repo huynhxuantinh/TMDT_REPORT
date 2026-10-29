@@ -190,6 +190,9 @@ VNPAY_TMN_CODE = os.getenv('VNPAY_TMN_CODE', '').strip()
 VNPAY_HASH_SECRET = os.getenv('VNPAY_HASH_SECRET', '').strip()
 VNPAY_PUBLIC_BASE_URL = os.getenv('VNPAY_PUBLIC_BASE_URL', '').strip().rstrip('/')
 VNPAY_PAYMENT_URL = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
+# Transaction lookup endpoint (querydr). Closing a reconciliation is only
+# allowed after each attempt has been confirmed here.
+VNPAY_QUERY_URL = os.getenv('VNPAY_QUERY_URL', 'https://sandbox.vnpayment.vn/merchant_webapi/api/transaction').strip()
 VNPAY_TIMEOUT_MINUTES = 15
 # VNPAY can deliver a successful IPN after the local payment window closed
 # (tunnel restarted, slow network, patient paid right at the deadline). While

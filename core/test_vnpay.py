@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from threading import Barrier
 from unittest.mock import patch
+from urllib.error import URLError
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 from django.contrib.auth.models import Permission, User
@@ -33,6 +34,28 @@ def sign_callback(data):
     encoded = urlencode(sorted((key, value) for key, value in data.items() if value != ''))
     digest = hmac.new(CONFIG['VNPAY_HASH_SECRET'].encode(), encoded.encode(), hashlib.sha512).hexdigest()
     return {**data, 'vnp_SecureHash': digest}
+
+
+QUERY_RESPONSE = {
+    'vnp_ResponseId': 'query-1', 'vnp_ResponseCode': '00', 'vnp_Message': 'QueryDR Success',
+    'vnp_TmnCode': CONFIG['VNPAY_TMN_CODE'], 'vnp_TxnRef': '', 'vnp_Amount': '',
+    'vnp_BankCode': 'NCB', 'vnp_PayDate': '', 'vnp_TransactionNo': '',
+    'vnp_TransactionType': '01', 'vnp_TransactionStatus': '01',
+    'vnp_OrderInfo': 'Truy van giao dich',
+}
+
+
+def query_response(attempt, status='01', **overrides):
+    """Signed querydr payload, as VNPAY answers it (pipe-separated HMAC)."""
+    data = {**QUERY_RESPONSE, 'vnp_TxnRef': attempt.ma_tham_chieu,
+            'vnp_Amount': str(int(attempt.so_tien) * 100),
+            'vnp_TransactionNo': '87654321' if status == '00' else '',
+            'vnp_PayDate': '20261029120000' if status == '00' else '',
+            'vnp_TransactionStatus': status, **overrides}
+    raw = '|'.join(str(data[field]) for field in vnpay.QUERY_RESPONSE_FIELDS)
+    data['vnp_SecureHash'] = hmac.new(CONFIG['VNPAY_HASH_SECRET'].encode(), raw.encode(),
+                                      hashlib.sha512).hexdigest()
+    return data
 
 
 def fixtures():
@@ -98,6 +121,37 @@ class VnpayProtocolTests(SimpleTestCase):
                        'https://example.com?x=1', 'https://example.com:wrong', 'https://example.com:444']:
             with self.subTest(origin=origin), override_settings(VNPAY_PUBLIC_BASE_URL=origin):
                 self.assertTrue(vnpay.configuration_error())
+
+    def test_querydr_request_is_pipe_signed_and_verifiable(self):
+        class FakeAttempt:
+            ma_tham_chieu = 'abc123'
+            ngay_tao = timezone.now()
+
+        payload = vnpay.query_payload(FakeAttempt(), '127.0.0.1', now=FakeAttempt.ngay_tao)
+        self.assertEqual((payload['vnp_Command'], payload['vnp_TxnRef']), ('querydr', 'abc123'))
+        raw = '|'.join(str(payload[field]) for field in vnpay.QUERY_REQUEST_FIELDS)
+        self.assertEqual(payload['vnp_SecureHash'],
+                         hmac.new(CONFIG['VNPAY_HASH_SECRET'].encode(), raw.encode(), hashlib.sha512).hexdigest())
+        with self.assertRaises(vnpay.PaymentError):
+            vnpay.query_payload(FakeAttempt(), 'not-an-ip')
+
+    def test_querydr_response_must_be_signed_and_for_this_merchant(self):
+        data = dict(QUERY_RESPONSE, vnp_TxnRef='abc123')
+        raw = '|'.join(str(data[field]) for field in vnpay.QUERY_RESPONSE_FIELDS)
+        data['vnp_SecureHash'] = hmac.new(CONFIG['VNPAY_HASH_SECRET'].encode(), raw.encode(),
+                                          hashlib.sha512).hexdigest()
+        self.assertEqual(vnpay.verified_query_response(data)['vnp_TxnRef'], 'abc123')
+        foreign = dict(data, vnp_TmnCode='OTHER')
+        foreign_raw = '|'.join(str(foreign[field]) for field in vnpay.QUERY_RESPONSE_FIELDS)
+        foreign['vnp_SecureHash'] = hmac.new(CONFIG['VNPAY_HASH_SECRET'].encode(), foreign_raw.encode(),
+                                             hashlib.sha512).hexdigest()
+        for broken in [{**data, 'vnp_TxnRef': 'other'},
+                       {**data, 'vnp_SecureHash': '0' * 128},
+                       {key: value for key, value in data.items() if key != 'vnp_SecureHash'},
+                       foreign, ['not', 'a', 'dict']]:
+            with self.subTest(broken=broken):
+                with self.assertRaises(vnpay.PaymentError):
+                    vnpay.verified_query_response(broken)
 
 
 @override_settings(**CONFIG)
@@ -351,7 +405,9 @@ class VnpayPaymentTests(TestCase):
         self.assertTrue(LogHeThong.objects.filter(
             model_name='GiaoDichThanhToan', object_id=attempt.pk, ghi_chu__contains='Thu trung').exists())
         with self.assertRaises(vnpay.PaymentError):
-            services.resolve_reconciliation(self.invoice.pk, self.admin)
+            services.resolve_reconciliation(self.invoice.pk, self.admin,
+                                            reason='Kiem tra khoan thu trung VNPAY',
+                                            reference=attempt.ma_tham_chieu)
         with self.assertRaises(vnpay.PaymentError):
             services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
         detail = self.client.get(reverse('payment_detail', args=[self.appointment.pk]))
@@ -374,17 +430,131 @@ class VnpayPaymentTests(TestCase):
         self.assert_unpaid()
         self.assertEqual(self.start().trang_thai, 'pending')
 
-    def test_admin_can_close_reconciliation_after_checking_vnpay(self):
+    def reconciliation(self, attempt, reason='Da kiem tra tren cong VNPAY, khong co giao dich', **extra):
+        return self.client.post(
+            reverse('cashier_monitor_reconcile_close', args=[self.invoice.pk]),
+            {'reason': reason, 'reference': attempt.ma_tham_chieu, **extra})
+
+    def test_reconciliation_requires_reason_and_reference(self):
         attempt = self.start()
         HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
-        response = self.client.post(reverse('cashier_monitor_reconcile_close', args=[self.invoice.pk]))
+        with patch.object(vnpay, 'http_post_json') as query:
+            self.reconciliation(attempt, reason='', reference='')
+            self.reconciliation(attempt, reason='Kiem tra lai VNPAY', reference='')
+            self.reconciliation(attempt, reason='', reference=attempt.ma_tham_chieu)
+        query.assert_not_called()
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'pending')
+        self.assertTrue(self.invoice.can_doi_soat)
+
+    def test_reconciliation_rejects_reference_from_another_invoice(self):
+        attempt = self.start()
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        with patch.object(vnpay, 'http_post_json') as query:
+            self.reconciliation(attempt, reference='deadbeefdeadbeefdeadbeefdeadbeef')
+        query.assert_not_called()
+        self.invoice.refresh_from_db()
+        self.assertTrue(self.invoice.can_doi_soat)
+
+    def test_reconciliation_closes_only_after_querydr_confirms_unpaid(self):
+        attempt = self.start()
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        with patch.object(vnpay, 'http_post_json', return_value=query_response(attempt, '01')) as query:
+            response = self.reconciliation(attempt, reason='Kiem tra tren VNPAY, giao dich chua thanh toan')
         self.assertRedirects(response, reverse('cashier_monitor_detail', args=[self.appointment.pk]))
+        payload = query.call_args.args[1]
+        self.assertEqual((payload['vnp_Command'], payload['vnp_TxnRef']), ('querydr', attempt.ma_tham_chieu))
+        self.assertEqual(len(payload['vnp_SecureHash']), 128)
         attempt.refresh_from_db()
         self.invoice.refresh_from_db()
         self.assertEqual(attempt.trang_thai, 'timeout')
         self.assertFalse(self.invoice.can_doi_soat)
-        self.assertTrue(LogHeThong.objects.filter(model_name='HoaDon', object_id=self.invoice.pk,
-                                                  ghi_chu__contains='ket thuc doi soat').exists())
+        log = LogHeThong.objects.filter(model_name='HoaDon', object_id=self.invoice.pk).latest('pk')
+        self.assertIn('giao dich chua thanh toan', log.ghi_chu)
+        self.assertIn(attempt.ma_tham_chieu, log.ghi_chu)
+        self.assertTrue(LogHeThong.objects.filter(
+            model_name='GiaoDichThanhToan', object_id=attempt.pk,
+            du_lieu_moi__querydr_outcome='unpaid').exists())
+
+    def test_reconciliation_settles_invoice_when_querydr_says_paid(self):
+        attempt = self.start()
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        with patch.object(vnpay, 'http_post_json', return_value=query_response(attempt, '00')):
+            response = self.reconciliation(attempt, reason='Kiem tra lai vi khach bao da chuyen khoan')
+        self.assertRedirects(response, reverse('cashier_monitor_detail', args=[self.appointment.pk]))
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'success')
+        self.assertEqual(self.invoice.trang_thai, 'paid')
+        self.assertEqual(self.invoice.ngay_thanh_toan, attempt.hoan_tat_luc)
+        self.assertFalse(self.invoice.can_doi_soat)
+        with self.assertRaises(vnpay.PaymentError):
+            services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
+
+    def test_reconciliation_flags_duplicate_when_querydr_paid_an_already_paid_invoice(self):
+        attempt = self.start()
+        self.move_past_ipn_grace(attempt)
+        services.expire_pending_payment(attempt.pk)
+        services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
+        # A conflicting success notification has already frozen the invoice.
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        with patch.object(vnpay, 'http_post_json', return_value=query_response(attempt, '00')):
+            self.reconciliation(attempt, reason='Khach bao da chuyen khoan, quay da thu tien mat')
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'duplicate')
+        self.assertEqual(self.invoice.trang_thai, 'paid')
+        self.assertTrue(self.invoice.can_doi_soat)
+        with self.assertRaises(vnpay.PaymentError):
+            services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
+
+    def test_reconciliation_keeps_paid_invoice_locked_when_querydr_says_unpaid(self):
+        attempt = self.start()
+        self.move_past_ipn_grace(attempt)
+        services.expire_pending_payment(attempt.pk)
+        services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        with patch.object(vnpay, 'http_post_json', return_value=query_response(attempt, '01')):
+            self.reconciliation(attempt, reason='Doi chieu lai voi VNPAY sau khi da thu tien mat')
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'timeout')
+        self.assertEqual(self.invoice.trang_thai, 'paid')
+        self.assertFalse(self.invoice.can_doi_soat)
+
+    def test_reconciliation_refuses_unknown_or_unreachable_answer(self):
+        attempt = self.start()
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        answers = [
+            query_response(attempt, '01', vnp_ResponseCode='91'),
+            query_response(attempt, '99'),
+            query_response(attempt, '01', vnp_Amount='1'),
+        ]
+        for answer in answers:
+            with self.subTest(answer=answer['vnp_ResponseCode'] + '/' + answer['vnp_TransactionStatus']):
+                with patch.object(vnpay, 'http_post_json', return_value=answer):
+                    self.reconciliation(attempt)
+                self.invoice.refresh_from_db()
+                self.assertTrue(self.invoice.can_doi_soat)
+        with patch.object(vnpay, 'http_post_json', side_effect=URLError('offline')):
+            self.reconciliation(attempt)
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'pending')
+        self.assertTrue(self.invoice.can_doi_soat)
+
+    def test_reconciliation_refuses_forged_query_response(self):
+        attempt = self.start()
+        HoaDon.objects.filter(pk=self.invoice.pk).update(can_doi_soat=True)
+        forged = {**query_response(attempt, '01'), 'vnp_TransactionStatus': '00'}
+        with patch.object(vnpay, 'http_post_json', return_value=forged):
+            self.reconciliation(attempt)
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'pending')
+        self.assert_unpaid()
+        self.assertTrue(self.invoice.can_doi_soat)
 
     def test_conflicting_callback_does_not_overwrite_terminal_status(self):
         attempt = self.start()
