@@ -82,6 +82,7 @@
     <a href="#email">Email phiếu</a>
     {% if invoice_logs %}<a href="#lich-su-gia">Lịch sử giá</a>{% endif %}
     <a href="#giao-dich">Giao dịch</a>
+    {% if audit_entries %}<a href="#nhat-ky">Nhật ký thanh toán</a>{% endif %}
     {% if show_technical and ipn_url %}<a href="#cau-hinh">Cấu hình sandbox</a>{% endif %}
 </nav>
 {% endif %}
@@ -202,6 +203,20 @@
             <td>Nhân viên: {{ attempt.nguoi_tao.username|default:'—' }}<br>Bệnh viện ghi nhận: {{ attempt.benh_vien.ten|default:'Giao dịch cũ chưa lưu bệnh viện' }}<br>Hoàn tất: {{ attempt.hoan_tat_luc|date:'d/m/Y H:i:s'|default:'—' }}
             {% if attempt.phuong_thuc == 'VNPAY' %}<br>Mã phản hồi: {{ attempt.ma_phan_hoi|default:'—' }}<br>Trạng thái: {{ attempt.trang_thai_vnpay|default:'—' }}<br>Mã GD: {{ attempt.ma_giao_dich_vnpay|default:'—' }}{% endif %}</td>
         </tr>{% empty %}<tr><td colspan="4">Chưa có giao dịch.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>{% endif %}
+
+{% if audit_entries %}<section id="nhat-ky">
+    <h2>Nhật ký thanh toán</h2>
+    <p class="muted">Mọi thay đổi trạng thái tiền đều có vết kiểm toán, kể cả IPN tự động (không có người thực hiện).</p>
+    <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Thời gian</th><th scope="col">Đối tượng</th><th scope="col">Người thực hiện</th><th scope="col">Nội dung</th></tr></thead>
+        <tbody>{% for log in audit_entries %}<tr>
+            <td>{{ log.thoi_gian|date:'d/m/Y H:i:s' }}</td>
+            <td>{% if log.model_name == 'HoaDon' %}Hóa đơn #{{ log.object_id }}{% else %}Giao dịch #{{ log.object_id }}{% endif %}</td>
+            <td>{{ log.nguoi_thuc_hien.username|default:'Hệ thống / VNPAY' }}</td>
+            <td>{{ log.ghi_chu }}{% if log.ip_address %}<br><span class="muted">IP {{ log.ip_address }}</span>{% endif %}</td>
+        </tr>{% empty %}<tr><td colspan="4">Chưa có thay đổi nào được ghi.</td></tr>{% endfor %}</tbody>
     </table></div>
 </section>{% endif %}
 

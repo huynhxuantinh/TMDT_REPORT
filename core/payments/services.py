@@ -361,6 +361,43 @@ def validate_callback(params, payment):
     return None
 
 
+def _record_result(attempt, params, outcome):
+    """Store a terminal provider result without touching (or unlocking) the invoice."""
+    before = {'trang_thai': attempt.trang_thai, 'ma_giao_dich_vnpay': attempt.ma_giao_dich_vnpay}
+    _apply_vnpay_result(attempt, params)
+    attempt.trang_thai = outcome
+    attempt.hoan_tat_luc = timezone.now()
+    attempt.save(update_fields=['ma_phan_hoi', 'trang_thai_vnpay', 'ma_giao_dich_vnpay',
+                                'vnp_pay_date', 'trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
+    _log_attempt(
+        attempt, before,
+        (f'IPN VNPAY bao {outcome} (ma {params["vnp_ResponseCode"]}/{params["vnp_TransactionStatus"]}); '
+         'hoa don da thanh toan bang nguon khac, khong thay doi.'),
+    )
+    return '00', 'Confirm Success'
+
+
+def _log_conflict(invoice, attempt, params, outcome):
+    """Audit a callback that contradicts what is already recorded."""
+    _log_attempt(
+        attempt,
+        {'trang_thai': attempt.trang_thai, 'ma_giao_dich_vnpay': attempt.ma_giao_dich_vnpay},
+        (f'IPN mau thuan ({outcome}, ma {params["vnp_ResponseCode"]}/{params["vnp_TransactionStatus"]}) '
+         'voi ket qua da ghi. Giu nguyen ban ghi goc va chuyen sang doi soat.'),
+        extra={'ipn_outcome': outcome, 'ipn_response_code': params['vnp_ResponseCode'],
+               'ipn_transaction_status': params['vnp_TransactionStatus'],
+               'ipn_transaction_no': params['vnp_TransactionNo']},
+    )
+    LogHeThong.objects.create(
+        model_name='HoaDon', object_id=invoice.pk, hanh_dong='update',
+        du_lieu_cu={'can_doi_soat': invoice.can_doi_soat},
+        du_lieu_moi={'can_doi_soat': True, 'ipn_outcome': outcome,
+                     'ipn_transaction_no': params['vnp_TransactionNo'],
+                     'reference': attempt.ma_tham_chieu},
+        ghi_chu='IPN VNPAY mau thuan voi ket qua da ghi; khoa hoa don va chuyen sang doi soat.',
+    )
+
+
 def _settle_after_local_timeout(invoice, attempt, params, outcome, *, actor=None, note=''):
     """Apply a verified result that arrived after this attempt stopped waiting.
 
@@ -444,13 +481,18 @@ def process_ipn(params):
             return _settle_after_local_timeout(invoice, attempt, params, outcome)
         # A later contradictory callback must not leave a failed invoice retryable.
         # Preserve the original terminal record and freeze new charges for review.
+        _log_conflict(invoice, attempt, params, outcome)
         invoice.can_doi_soat = True
         invoice.save(update_fields=['can_doi_soat', 'ngay_cap_nhat'])
         return '99', 'Conflicting result; reconciliation required'
     if invoice.so_tien != attempt.so_tien:
         return '04', 'Invalid amount'
-    if invoice.trang_thai == 'paid':
-        return '02', 'Order already confirmed'
+    if invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN:
+        # Another attempt settled the invoice while this one was still pending.
+        if outcome == 'success':
+            return _settle_after_local_timeout(invoice, attempt, params, outcome)
+        return _record_result(attempt, params, outcome)
+    before = {'trang_thai': attempt.trang_thai, 'ma_giao_dich_vnpay': attempt.ma_giao_dich_vnpay}
     _apply_vnpay_result(attempt, params)
     attempt.trang_thai = outcome
     if outcome != 'pending':
@@ -460,10 +502,31 @@ def process_ipn(params):
         # Ask for IPN retry. The invoice stays frozen during the late-IPN window;
         # only then does the attempt become 'timeout' and a new charge become legal.
         return '99', 'Payment pending; retry notification'
+    transaction_no = params['vnp_TransactionNo']
     if outcome == 'success':
         invoice.trang_thai = HoaDon.TrangThai.DA_THANH_TOAN
         invoice.ngay_thanh_toan = attempt.hoan_tat_luc
         invoice.save(update_fields=['trang_thai', 'ngay_thanh_toan', 'ngay_cap_nhat'])
+        _log_attempt(
+            attempt, before,
+            f'IPN VNPAY xac nhan thanh toan (giao dich {transaction_no}); hoa don chuyen sang da thanh toan.',
+        )
+        LogHeThong.objects.create(
+            model_name='HoaDon', object_id=invoice.pk, hanh_dong='update',
+            du_lieu_cu={'trang_thai': HoaDon.TrangThai.CHUA_THANH_TOAN, 'ngay_thanh_toan': None},
+            du_lieu_moi={'trang_thai': invoice.trang_thai,
+                         'ngay_thanh_toan': invoice.ngay_thanh_toan.isoformat(),
+                         'ma_giao_dich_vnpay': transaction_no, 'so_tien': str(attempt.so_tien)},
+            ghi_chu=(f'IPN VNPAY hop le xac nhan thanh toan {attempt.so_tien} VND '
+                     f'(giao dich {transaction_no}, tham chieu {attempt.ma_tham_chieu}); '
+                     'hoa don chuyen sang da thanh toan.'),
+        )
         from core.receipts.delivery import schedule_confirmation
         schedule_confirmation(invoice)
+    else:
+        _log_attempt(
+            attempt, before,
+            (f'IPN VNPAY bao {outcome} (ma {params["vnp_ResponseCode"]}/'
+             f'{params["vnp_TransactionStatus"]}); hoa don van chua thanh toan.'),
+        )
     return '00', 'Confirm Success'

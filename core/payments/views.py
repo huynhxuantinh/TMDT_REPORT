@@ -121,6 +121,15 @@ def payment_detail(request, lich_id, monitor=False):
     )
     service_context = exam_services_context(appointment, phieu) if can_edit_services else {}
     show_technical = settings.DEBUG or can_admin(request.user)
+    audit_entries = []
+    if invoice:
+        audit_entries = list(
+            LogHeThong.objects.filter(
+                Q(model_name='HoaDon', object_id=invoice.pk)
+                | Q(model_name='GiaoDichThanhToan', object_id__in=[attempt.pk for attempt in attempts])
+            ).exclude(model_name='HoaDon', du_lieu_moi__phien_ban__isnull=False)
+            .select_related('nguoi_thuc_hien').order_by('-thoi_gian', '-pk')[:50]
+        )
     return render(request, 'core/payments/detail.html', {
         'receipt_email': email_row,
         'receipt_email_error': ERROR_MESSAGES.get(email_row.ma_loi, '') if email_row else '',
@@ -134,7 +143,10 @@ def payment_detail(request, lich_id, monitor=False):
         'amount_error': amount_error,
         'refund_attempt': refund_attempt, 'refund_required': bool(refund_attempt),
         'invoice_lines': list(invoice.chi_tiet_hien_hanh) if invoice else [],
-        'invoice_logs': LogHeThong.objects.filter(model_name='HoaDon', object_id=invoice.pk).select_related('nguoi_thuc_hien') if invoice else [],
+        'invoice_logs': (LogHeThong.objects.filter(model_name='HoaDon', object_id=invoice.pk,
+                                                  du_lieu_moi__phien_ban__isnull=False)
+                         .select_related('nguoi_thuc_hien') if invoice else []),
+        'audit_entries': audit_entries,
         'config_error': '' if invoice and invoice.hoan_tat_bhyt else (config_error if show_technical else ('Cổng thanh toán hiện chưa sẵn sàng. Vui lòng liên hệ Admin.' if config_error else '')),
         'can_start': available and not config_error and not amount_error,
         'can_edit_services': can_edit_services,

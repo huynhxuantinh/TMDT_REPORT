@@ -556,6 +556,61 @@ class VnpayPaymentTests(TestCase):
         self.assert_unpaid()
         self.assertTrue(self.invoice.can_doi_soat)
 
+    def test_success_ipn_writes_audit_trail_for_attempt_and_invoice(self):
+        attempt = self.start()
+        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '00')
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        attempt_log = LogHeThong.objects.get(model_name='GiaoDichThanhToan', object_id=attempt.pk)
+        self.assertEqual(attempt_log.du_lieu_cu['trang_thai'], 'pending')
+        self.assertEqual(attempt_log.du_lieu_moi['trang_thai'], 'success')
+        self.assertIn('12345678', attempt_log.ghi_chu)
+        self.assertIsNone(attempt_log.nguoi_thuc_hien_id)
+        invoice_log = LogHeThong.objects.get(model_name='HoaDon', object_id=self.invoice.pk)
+        self.assertEqual(invoice_log.du_lieu_cu['trang_thai'], 'unpaid')
+        self.assertEqual(invoice_log.du_lieu_moi['trang_thai'], 'paid')
+        self.assertEqual(invoice_log.du_lieu_moi['so_tien'], '100000')
+        self.assertEqual(invoice_log.du_lieu_moi['ma_giao_dich_vnpay'], '12345678')
+        self.assertIn(attempt.ma_tham_chieu, invoice_log.ghi_chu)
+        detail = self.client.get(reverse('payment_detail', args=[self.appointment.pk]))
+        self.assertContains(detail, 'Nhật ký thanh toán')
+        self.assertContains(detail, 'Hệ thống / VNPAY')
+
+    def test_failed_ipn_writes_attempt_audit_without_touching_invoice(self):
+        attempt = self.start()
+        self.assertEqual(self.ipn(self.callback(attempt, '51', '02'))['RspCode'], '00')
+        log = LogHeThong.objects.get(model_name='GiaoDichThanhToan', object_id=attempt.pk)
+        self.assertEqual(log.du_lieu_moi['trang_thai'], 'failed')
+        self.assertIn('51/02', log.ghi_chu)
+        self.assertFalse(LogHeThong.objects.filter(model_name='HoaDon').exists())
+        self.assert_unpaid()
+
+    def test_conflicting_ipn_is_audited_with_the_rejected_values(self):
+        attempt = self.start()
+        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '00')
+        self.assertEqual(self.ipn(self.callback(attempt, '24', '02'))['RspCode'], '99')
+        conflict = LogHeThong.objects.get(model_name='GiaoDichThanhToan', object_id=attempt.pk,
+                                          du_lieu_moi__ipn_outcome='cancelled')
+        self.assertEqual(conflict.du_lieu_cu['trang_thai'], 'success')
+        self.assertEqual(conflict.du_lieu_moi['ipn_transaction_no'], '12345678')
+        invoice_log = LogHeThong.objects.filter(model_name='HoaDon', object_id=self.invoice.pk,
+                                                du_lieu_moi__can_doi_soat=True).latest('pk')
+        self.assertEqual(invoice_log.du_lieu_moi['ipn_outcome'], 'cancelled')
+        self.assertEqual(invoice_log.du_lieu_moi['reference'], attempt.ma_tham_chieu)
+
+    def test_success_ipn_for_pending_attempt_on_paid_invoice_is_a_duplicate(self):
+        attempt = self.start()
+        # Another attempt settled the invoice while this one was still pending.
+        HoaDon.objects.filter(pk=self.invoice.pk).update(
+            trang_thai='paid', ngay_thanh_toan=timezone.now())
+        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '00')
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'duplicate')
+        self.assertTrue(self.invoice.can_doi_soat)
+        self.assertTrue(LogHeThong.objects.filter(
+            model_name='GiaoDichThanhToan', object_id=attempt.pk, ghi_chu__contains='Thu trung').exists())
+
     def test_conflicting_callback_does_not_overwrite_terminal_status(self):
         attempt = self.start()
         self.ipn(self.callback(attempt))
