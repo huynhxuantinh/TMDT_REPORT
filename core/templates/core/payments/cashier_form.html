@@ -1,9 +1,9 @@
 {% extends 'core/payments/base.html' %}
-{% block title %}Phân công thu ngân{% endblock %}
+{% block title %}Phân công quản lý chi nhánh{% endblock %}
 {% block content %}
 <section>
-    <a href="{% url 'cashier_list' %}">← Danh sách thu ngân</a>
-    <h1>{% if profile %}Sửa thu ngân{% else %}Tạo tài khoản thu ngân{% endif %}</h1>
+    <a href="{% url 'cashier_list' %}">← Danh sách quản lý chi nhánh</a>
+    <h1>{% if profile %}Sửa quản lý chi nhánh{% else %}Tạo tài khoản quản lý chi nhánh{% endif %}</h1>
     <p>Tài khoản sử dụng màn hình đăng nhập hiện tại. Không được cấp quyền Admin hoặc bác sĩ.</p>
     <form method="post">
         {% csrf_token %}
@@ -16,11 +16,11 @@
             {% if field.help_text %}<span class="helptext" id="{{ field.auto_id }}_helptext">
                 {% if field.name == 'username' %}Bắt buộc. Tối đa 150 ký tự, gồm chữ, số và các ký tự @/./+/-/_.
                 {% elif field.name == 'is_active' %}Cho phép tài khoản hoạt động. Bỏ chọn để vô hiệu hóa tài khoản.
-                {% else %}{{ field.help_text|safe }}{% endif %}
+                {% else %}{{ field.help_text }}{% endif %}
             </span>{% endif %}
         </div>
         {% endfor %}
-        <button type="submit">Lưu thu ngân</button>
+        <button type="submit">Lưu quản lý chi nhánh</button>
     </form>
 </section>
 {% endblock %}

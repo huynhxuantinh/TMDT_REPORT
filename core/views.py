@@ -51,8 +51,7 @@ from .forms import (
     ContactFeedbackForm,
     DatLichForm,
 )
-from .exam_services.services import ExamServiceError, form_context as exam_services_context, sync_services
-from .billing.services import BillingError, bill_exam, billing_context as exam_billing_context
+from .billing.services import billing_context as exam_billing_context
 
 
 # ==========================
@@ -759,7 +758,6 @@ def phieu_kham_detail(request, phieu_id):
             "phieu": phieu,
             "edit_logs": edit_logs,
             "exam_images": list(phieu.hinh_anhs.all()),
-            **exam_billing_context(phieu),
         })
 
     benh_nhan = _patient_for_user(request.user)
@@ -846,11 +844,10 @@ def doctor_exam(request, lich_id):
         lich.trang_thai = "dang"
         lich.save(update_fields=["trang_thai", "ngay_cap_nhat"])
 
-    service_context = exam_services_context(lich, data=request.POST if request.method == "POST" else None)
     clinical_values = {name + "_value": request.POST.get(name, "") for name in ("trieu_chung", "chan_doan", "huong_dieu_tri")}
 
     def render_exam():
-        return render(request, "core/doctor_exam.html", {"lich": lich, **service_context, **clinical_values})
+        return render(request, "core/doctor_exam.html", {"lich": lich, **clinical_values})
 
     if request.method == "POST":
 
@@ -862,15 +859,11 @@ def doctor_exam(request, lich_id):
         if not trieu_chung or not chan_doan or not huong_dieu_tri:
             messages.error(request, "Vui lòng nhập đầy đủ thông tin phiếu khám.")
             return render_exam()
-        if service_context['services_submitted'] and not service_context['services_formset'].is_valid():
-            messages.error(request, "Danh sách dịch vụ chưa hợp lệ. Vui lòng kiểm tra các dòng bên dưới.")
-            return render_exam()
-
         try:
             with transaction.atomic():
                 lich = get_object_or_404(LichKham.objects.select_for_update(), id=lich_id, bac_si=bac_si)
                 if lich.trang_thai == "huy" or PhieuKham.objects.filter(lich_kham=lich).exists():
-                    raise ExamServiceError("Lịch khám đã hủy hoặc đã có phiếu khám. Vui lòng tải lại trang.")
+                    raise ValidationError("Lịch khám đã hủy hoặc đã có phiếu khám. Vui lòng tải lại trang.")
                 phieu = PhieuKham.objects.create(
                     benh_nhan=lich.benh_nhan,
                     lich_kham=lich,
@@ -878,10 +871,6 @@ def doctor_exam(request, lich_id):
                     chan_doan=chan_doan,
                     huong_dieu_tri=huong_dieu_tri
                 )
-                if service_context['services_submitted']:
-                    sync_services(phieu, request.user, service_context['services_formset'],
-                                  service_context['services_revision'], request.META.get('REMOTE_ADDR', ''))
-
                 for idx, image in enumerate(uploaded_images):
                     hinh_anh = PhieuKhamHinhAnh(
                         phieu_kham=phieu,
@@ -893,15 +882,11 @@ def doctor_exam(request, lich_id):
 
                 lich.trang_thai = "xong"
                 lich.save()
-                invoice = bill_exam(phieu.pk, request.user, remote_addr=request.META.get('REMOTE_ADDR', ''))
-        except (ExamServiceError, BillingError) as exc:
-            messages.error(request, " ".join(exc.messages))
-            return render_exam()
         except ValidationError:
             messages.error(request, "Ảnh tải lên không hợp lệ. Vui lòng dùng JPG, PNG hoặc WEBP.")
             return render_exam()
 
-        messages.success(request, f"Đã hoàn thành khám. Đã tạo hóa đơn #{invoice.pk}, tổng chi phí {invoice.tong_truoc_bhyt:,.0f} VND; BHYT MÔ PHỎNG hỗ trợ {invoice.bhyt_ho_tro:,.0f} VND; bệnh nhân trả {invoice.so_tien:,.0f} VND." + (" Hóa đơn 0đ đã tự hoàn tất." if invoice.hoan_tat_bhyt else ""))
+        messages.success(request, "Đã hoàn thành khám. Quản lý chi nhánh sẽ ghi nhận dịch vụ và tính chi phí.")
 
         return redirect("bac_si_home")
 
@@ -2449,13 +2434,12 @@ def bac_si_phieu_kham_edit(request, phieu_id):
         id=phieu_id,
         lich_kham__bac_si=bac_si,
     )
-    service_context = exam_services_context(phieu.lich_kham, phieu, request.POST if request.method == "POST" else None)
     clinical_values = {name + "_value": request.POST.get(name, "") if request.method == "POST" else getattr(phieu, name)
                        for name in ("trieu_chung", "chan_doan", "huong_dieu_tri")}
 
     def render_exam_edit():
         return render(request, "core/doctor_exam_edit.html", {
-            "phieu": phieu, "existing_images": list(phieu.hinh_anhs.all()), **service_context, **clinical_values,
+            "phieu": phieu, "existing_images": list(phieu.hinh_anhs.all()), **clinical_values,
         })
 
     if request.method == "POST":
@@ -2468,10 +2452,6 @@ def bac_si_phieu_kham_edit(request, phieu_id):
         if not trieu_chung or not chan_doan or not huong_dieu_tri:
             messages.error(request, "Vui lòng nhập đầy đủ thông tin.")
             return render_exam_edit()
-        if service_context['services_submitted'] and not service_context['services_formset'].is_valid():
-            messages.error(request, "Danh sách dịch vụ chưa hợp lệ. Vui lòng kiểm tra các dòng bên dưới.")
-            return render_exam_edit()
-
         old_data = {
             "trieu_chung": phieu.trieu_chung,
             "chan_doan": phieu.chan_doan,
@@ -2487,9 +2467,6 @@ def bac_si_phieu_kham_edit(request, phieu_id):
             with transaction.atomic():
                 get_object_or_404(LichKham.objects.select_for_update(), pk=phieu.lich_kham_id, bac_si=bac_si)
                 phieu = get_object_or_404(PhieuKham.objects.select_for_update(), pk=phieu_id, lich_kham__bac_si=bac_si)
-                if service_context['services_submitted']:
-                    sync_services(phieu, request.user, service_context['services_formset'],
-                                  service_context['services_revision'], request.META.get('REMOTE_ADDR', ''))
                 phieu.trieu_chung = trieu_chung
                 phieu.chan_doan = chan_doan
                 phieu.huong_dieu_tri = huong_dieu_tri
@@ -2512,9 +2489,6 @@ def bac_si_phieu_kham_edit(request, phieu_id):
                     hinh_anh.full_clean()
                     hinh_anh.save()
                     next_order += 1
-        except ExamServiceError as exc:
-            messages.error(request, " ".join(exc.messages))
-            return render_exam_edit()
         except ValidationError:
             messages.error(request, "Ảnh tải lên không hợp lệ. Vui lòng dùng JPG, PNG hoặc WEBP.")
             return render_exam_edit()

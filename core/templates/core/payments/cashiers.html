@@ -1,18 +1,18 @@
 {% extends 'core/payments/base.html' %}
-{% block title %}Quản lý thu ngân{% endblock %}
+{% block title %}Quản lý chi nhánh{% endblock %}
 {% block content %}
 <section>
     <a href="{% url 'custom_admin_dashboard' %}">← Quản trị</a>
-    <h1>Quản lý thu ngân</h1>
-    <p>Mỗi tài khoản thu ngân được phân công đúng một bệnh viện.</p>
-    <p><a class="btn" href="{% url 'cashier_create' %}">Tạo tài khoản thu ngân</a> <a href="{% url 'cashier_monitor' %}">Theo dõi hóa đơn toàn hệ thống</a></p>
+    <h1>Quản lý chi nhánh</h1>
+    <p>Mỗi quản lý chi nhánh được phân công đúng một bệnh viện.</p>
+    <p><a class="btn" href="{% url 'cashier_create' %}">Tạo tài khoản quản lý chi nhánh</a> <a href="{% url 'cashier_monitor' %}">Theo dõi hóa đơn toàn hệ thống</a></p>
     <div class="table-wrap"><table>
         <thead><tr><th>Tài khoản</th><th>Bệnh viện</th><th>Trạng thái</th><th></th></tr></thead>
-        <tbody>{% for cashier in page_obj %}<tr>
-            <td>{{ cashier.user.username }}<br>{{ cashier.user.get_full_name }}</td>
-            <td>{{ cashier.benh_vien.ten }}</td><td>{{ cashier.user.is_active|yesno:'Hoạt động,Vô hiệu hóa' }}</td>
-            <td><a href="{% url 'cashier_edit' cashier.pk %}">Sửa / phân công / kích hoạt</a></td>
-        </tr>{% empty %}<tr><td colspan="4">Chưa có thu ngân.</td></tr>{% endfor %}</tbody>
+        <tbody>{% for manager in page_obj %}<tr>
+            <td>{{ manager.user.username }}<br>{{ manager.user.get_full_name }}</td>
+            <td>{{ manager.benh_vien.ten }}</td><td>{{ manager.user.is_active|yesno:'Hoạt động,Vô hiệu hóa' }}</td>
+            <td><a href="{% url 'cashier_edit' manager.pk %}">Sửa / phân công / kích hoạt</a></td>
+        </tr>{% empty %}<tr><td colspan="4">Chưa có quản lý chi nhánh.</td></tr>{% endfor %}</tbody>
     </table></div>
     {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">Trang trước</a>{% endif %}
     <span>Trang {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>

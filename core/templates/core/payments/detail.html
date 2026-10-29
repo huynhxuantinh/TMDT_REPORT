@@ -11,6 +11,12 @@
     {% if config_error %}<p class="notice">{{ config_error }}</p>{% endif %}
     {% if invoice_error %}<p class="notice">{{ invoice_error }}</p>{% endif %}
     {% if amount_error %}<p class="notice">{{ amount_error }}</p>{% endif %}
+    {% if can_edit_services %}
+        <form method="post" action="{% url 'payment_services_save' lich.pk %}">{% csrf_token %}
+            {% include 'core/exam_services/editor.html' %}
+            <button type="submit">Lưu dịch vụ và tính lại hóa đơn</button>
+        </form>
+    {% endif %}
     {% if invoice %}
         <h2>Hóa đơn #{{ invoice.pk }}: {{ invoice.so_tien|floatformat:'0g' }} VND</h2>
         <p class="actions"><a class="btn secondary" href="{% url 'receipt_view' invoice.pk %}" target="_blank" rel="noopener">Xem phiếu PDF</a>

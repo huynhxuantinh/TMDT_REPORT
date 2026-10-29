@@ -14,6 +14,8 @@ from django.views.decorators.http import require_GET, require_POST
 
 from core.models import EmailPhieuThanhToan, GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
 from core.billing.services import BillingError, bill_exam, validate_invoice_total, payable_error
+from core.billing.services import invoice_lock_reason
+from core.exam_services.services import ExamServiceError, form_context as exam_services_context, sync_services
 from . import services, vnpay
 from .access import can_admin, manager_profile, scoped_appointments
 from core.receipts.delivery import ERROR_MESSAGES, eligible
@@ -55,6 +57,7 @@ def payment_list(request, monitor=False):
         'reconcile': Q(hoa_don__can_doi_soat=True),
         'pending': Q(payment_pending=True, hoa_don__can_doi_soat=False),
         'unpaid': Q(hoa_don__trang_thai='unpaid', payment_pending=False, hoa_don__can_doi_soat=False),
+        'no_invoice': Q(hoa_don__isnull=True),
         'failed': Q(hoa_don__trang_thai='unpaid', payment_pending=False, payment_failed=True, hoa_don__can_doi_soat=False),
     }
     if status in filters:
@@ -71,6 +74,7 @@ def payment_list(request, monitor=False):
 def payment_detail(request, lich_id, monitor=False):
     appointment = get_object_or_404(scoped_appointments(request.user).select_related('benh_nhan', 'bac_si__benh_vien'), pk=lich_id)
     invoice = HoaDon.objects.filter(lich_kham=appointment).first()
+    phieu = PhieuKham.objects.filter(lich_kham=appointment, benh_nhan=appointment.benh_nhan).first()
     attempts = list(invoice.giao_dichs.select_related('nguoi_tao', 'benh_vien')) if invoice else []
     try:
         services.require_completed(appointment)
@@ -90,6 +94,11 @@ def payment_detail(request, lich_id, monitor=False):
     available = bool(invoice and invoice.trang_thai == 'unpaid' and not invoice.can_doi_soat
                      and not any(a.trang_thai not in ['failed', 'cancelled', 'expired'] for a in attempts)
                      and not completion_error and not invoice_error and not monitor)
+    can_edit_services = bool(
+        phieu and not monitor and services.can_collect(request.user)
+        and (not invoice or not invoice_lock_reason(invoice))
+    )
+    service_context = exam_services_context(appointment, phieu) if can_edit_services else {}
     return render(request, 'core/payments/detail.html', {
         'receipt_email': email_row,
         'receipt_email_error': ERROR_MESSAGES.get(email_row.ma_loi, '') if email_row else '',
@@ -105,9 +114,30 @@ def payment_detail(request, lich_id, monitor=False):
         'invoice_logs': LogHeThong.objects.filter(model_name='HoaDon', object_id=invoice.pk).select_related('nguoi_thuc_hien') if invoice else [],
         'config_error': '' if invoice and invoice.hoan_tat_bhyt else config_error,
         'can_start': available and not config_error and not amount_error,
+        'can_edit_services': can_edit_services,
+        'service_phieu': phieu,
+        **service_context,
         'ipn_url': vnpay.callback_url('vnpay_ipn') if not config_error else '',
         'return_url': vnpay.callback_url('vnpay_return') if not config_error else '',
     })
+
+
+@never_cache
+@collector_required
+@require_POST
+def services_save(request, lich_id):
+    appointment = get_object_or_404(scoped_appointments(request.user).select_related('benh_nhan', 'bac_si__benh_vien'), pk=lich_id)
+    phieu = get_object_or_404(PhieuKham, lich_kham=appointment, benh_nhan=appointment.benh_nhan)
+    context = exam_services_context(appointment, phieu, request.POST)
+    try:
+        sync_services(phieu, request.user, context['services_formset'], context['services_revision'],
+                      request.META.get('REMOTE_ADDR', ''))
+        messages.success(request, 'Đã lưu dịch vụ và cập nhật hóa đơn.')
+    except ExamServiceError as exc:
+        messages.error(request, ' '.join(exc.messages))
+    except PermissionDenied as exc:
+        messages.error(request, str(exc))
+    return redirect('payment_detail', lich_id=lich_id)
 
 
 @collector_required

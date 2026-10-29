@@ -1,4 +1,4 @@
-"""Global administrators manage cashier identities through the existing User."""
+"""Global administrators manage branch-manager identities through the existing User."""
 from functools import wraps
 
 from django import forms
@@ -18,7 +18,7 @@ from core.models import BenhVien, LogHeThong, QuanLyChiNhanh
 from .access import can_admin
 
 
-class CashierForm(forms.ModelForm):
+class BranchManagerForm(forms.ModelForm):
     benh_vien = forms.ModelChoiceField(label='Bệnh viện được phân công', queryset=BenhVien.objects.order_by('ten'))
     password = forms.CharField(label='Mật khẩu mới', required=False, strip=False,
                                widget=forms.PasswordInput, help_text='Để trống khi sửa nếu giữ mật khẩu hiện tại.')
@@ -54,7 +54,7 @@ def admin_required(view):
     @wraps(view)
     def wrapped(request, *args, **kwargs):
         if not can_admin(request.user):
-            raise PermissionDenied('Chỉ Admin toàn cục được quản lý thu ngân.')
+            raise PermissionDenied('Chỉ Admin toàn cục được quản lý quản lý chi nhánh.')
         return view(request, *args, **kwargs)
     return wrapped
 
@@ -62,7 +62,7 @@ def admin_required(view):
 @never_cache
 @admin_required
 @require_GET
-def cashier_list(request):
+def branch_manager_list(request):
     rows = QuanLyChiNhanh.objects.select_related('user', 'benh_vien').order_by('user__username')
     return render(request, 'core/payments/cashiers.html', {'page_obj': Paginator(rows, 30).get_page(request.GET.get('page'))})
 
@@ -72,11 +72,11 @@ def cashier_list(request):
 @admin_required
 @require_http_methods(['GET', 'POST'])
 @transaction.atomic
-def cashier_form(request, pk=None):
+def branch_manager_form(request, pk=None):
     # The same profile row is locked by collection; assignment cannot change mid-payment.
     profile = get_object_or_404(QuanLyChiNhanh.objects.select_for_update(), pk=pk) if pk else None
     account = User.objects.select_for_update().get(pk=profile.user_id) if profile else User(is_active=True)
-    form = CashierForm(request.POST if request.method == 'POST' else None, instance=account,
+    form = BranchManagerForm(request.POST if request.method == 'POST' else None, instance=account,
                        initial={'benh_vien': profile.benh_vien_id} if profile else None)
     if request.method == 'POST' and form.is_valid():
         before = {'benh_vien_id': profile.benh_vien_id, 'is_active': account.is_active} if profile else None
@@ -95,7 +95,7 @@ def cashier_form(request, pk=None):
         LogHeThong.objects.create(model_name='QuanLyChiNhanh', object_id=profile.pk,
             hanh_dong='update' if before else 'create', nguoi_thuc_hien=request.user,
             du_lieu_cu=before, du_lieu_moi={'user_id': account.pk, 'benh_vien_id': profile.benh_vien_id,
-                                          'is_active': account.is_active}, ghi_chu='Quản lý phân công thu ngân')
-        messages.success(request, 'Đã lưu tài khoản và bệnh viện của thu ngân.')
+                                          'is_active': account.is_active}, ghi_chu='Quản lý phân công quản lý chi nhánh')
+        messages.success(request, 'Đã lưu tài khoản và bệnh viện của quản lý chi nhánh.')
         return redirect('cashier_list')
     return render(request, 'core/payments/cashier_form.html', {'form': form, 'profile': profile})

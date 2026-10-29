@@ -6,8 +6,10 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from django.db.models import Q
 
-from core.models import BacSi, DanhMucDichVu, DichVuThucHien, HoaDon, LichKham, LogHeThong, PhieuKham
+from core.models import DanhMucDichVu, DichVuThucHien, HoaDon, LichKham, LogHeThong, PhieuKham
 from core.billing.services import BillingError, bill_exam, billing_context, invoice_lock_reason, is_consultation
+from core.payments.access import can_collect, require_scope
+from core.payments.services import require_completed
 from .forms import PerformedServiceFormSet
 
 
@@ -22,8 +24,10 @@ def revision(rows):
 
 
 def lock_reason(appointment):
-    if appointment.trang_thai not in ('dang', 'xong'):
-        return 'Chỉ ghi nhận dịch vụ sau khi bắt đầu khám; lịch đã hủy không được chỉnh sửa.'
+    try:
+        require_completed(appointment)
+    except Exception as exc:
+        return str(exc)
     invoice = HoaDon.objects.filter(lich_kham_id=appointment.pk).first()
     if invoice:
         return invoice_lock_reason(invoice)
@@ -76,9 +80,9 @@ def sync_services(phieu, user, formset, submitted_revision, remote_addr=''):
     # Same first lock as create_invoice/start_payment; invoice creation and service
     # changes cannot pass their checks concurrently for the same appointment.
     appointment = LichKham.objects.select_for_update().get(pk=phieu.lich_kham_id)
-    if (not user.is_authenticated or not user.is_active
-            or not BacSi.objects.filter(pk=appointment.bac_si_id, user=user).exists()):
-        raise PermissionDenied('Chỉ bác sĩ được phân công được ghi nhận dịch vụ.')
+    if not can_collect(user):
+        raise PermissionDenied('Chỉ quản lý chi nhánh hoặc tài khoản có quyền thu tiền được ghi nhận dịch vụ.')
+    require_scope(user, appointment)
     # Serialize with IPN too: IPN locks invoice before checking/setting its state.
     HoaDon.objects.select_for_update().filter(lich_kham=appointment).first()
     phieu = PhieuKham.objects.select_for_update().get(pk=phieu.pk, lich_kham=appointment)

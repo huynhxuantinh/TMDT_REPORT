@@ -16,7 +16,8 @@
             <p class="notice">{{ attempt.get_trang_thai_display }}. Hóa đơn chưa thanh toán. Nhân viên có thể thực hiện lại tại quầy.</p>
         {% endif %}
         <p><a href="">Tải lại trạng thái</a></p>
-        {% if can_collect %}<a class="btn" href="{% url 'payment_detail' attempt.hoa_don.lich_kham_id %}">Về hóa đơn tại quầy</a>{% else %}<p>Vui lòng nhờ nhân viên tại quầy kiểm tra kết quả.</p>{% endif %}
+        <p><a class="btn secondary" href="{% url 'home' %}">Về trang chủ</a>
+        {% if can_collect %}<a class="btn" href="{% url 'payment_list' %}">Về trang chủ quản lý chi nhánh</a>{% endif %}</p>
     {% endif %}
 </section>
 {% endblock %}

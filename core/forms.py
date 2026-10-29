@@ -280,7 +280,7 @@ class AdminUserForm(forms.ModelForm):
         role = cleaned_data.get("role")
         current_user = self.instance if self.instance and self.instance.pk else None
         if current_user and QuanLyChiNhanh.objects.filter(user=current_user).exists():
-            raise forms.ValidationError('Tài khoản quản lý chi nhánh: hãy sửa tại Quản lý thu ngân để giữ đúng phân công và quyền.')
+            raise forms.ValidationError('Tài khoản quản lý chi nhánh: hãy sửa tại Quản lý chi nhánh để giữ đúng phân công và quyền.')
         has_doctor_profile = bool(current_user and BacSi.objects.filter(user=current_user).exists())
 
         if role == self.ROLE_DOCTOR and not has_doctor_profile:

@@ -75,21 +75,14 @@ def audit_invoice(invoice, before, user, remote_addr=''):
 
 @transaction.atomic
 def bill_exam(phieu_id, user, *, recalculate=False, remote_addr=''):
-    """Idempotent creation. Only the assigned doctor can request a revision.
-
-    Collectors may create a missing invoice for an old completed exam, but may
-    never reprice an existing invoice. No bulk conversion of legacy invoices.
-    """
+    """Create or recalculate a completed exam invoice within the collector scope."""
     from core.payments.access import can_collect, require_scope
 
     appointment_id = PhieuKham.objects.values_list('lich_kham_id', flat=True).get(pk=phieu_id)
     appointment = LichKham.objects.select_for_update().get(pk=appointment_id)
-    owner = (user.is_authenticated and user.is_active
-             and BacSi.objects.filter(pk=appointment.bac_si_id, user=user).exists())
-    if not owner and (recalculate or not can_collect(user)):
-        raise PermissionDenied('Chỉ bác sĩ phụ trách được điều chỉnh chi phí; lập hóa đơn cần quyền phù hợp.')
-    if not owner:
-        require_scope(user, appointment)
+    if not can_collect(user):
+        raise PermissionDenied('Chỉ quản lý chi nhánh hoặc tài khoản có quyền thu tiền được tính chi phí.')
+    require_scope(user, appointment)
     if appointment.trang_thai != 'xong':
         raise BillingError('Chỉ lập hóa đơn sau khi hoàn tất khám.')
     invoice = HoaDon.objects.select_for_update().filter(lich_kham=appointment).first()
