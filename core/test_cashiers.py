@@ -16,7 +16,7 @@ from core.billing.services import bill_exam, invoice_lock_reason
 from core.exam_services.services import ExamServiceError, form_context, sync_services
 from core.forms import AdminBacSiForm, AdminUserForm
 from core.models import (BacSi, BenhVien, ChiTietHoaDon, DichVuThucHien, GiaoDichThanhToan,
-                         HoaDon, LichKham, LogHeThong, PhieuKham, ThuNgan)
+                         HoaDon, LichKham, LogHeThong, PhieuKham, QuanLyChiNhanh)
 from core.payments.access import can_collect
 from core.payments.services import collect_cash, create_invoice, process_ipn, start_payment
 from core.payments.vnpay import PaymentError
