@@ -1,27 +1,14 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Thanh toán VNPAY Sandbox{% endblock %} · MedCare GIS</title>
-    <style>
-        * { box-sizing: border-box; }
-        body { margin: 0; background: #f2f6f4; color: #1e2a27; font: 16px/1.6 "Segoe UI", Arial, sans-serif; }
-        main { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
-        header, section { background: white; border: 1px solid #d8e4df; border-radius: 14px; padding: 20px; margin-bottom: 18px; }
-        h1 { font-size: 26px; margin: 8px 0; } h2 { font-size: 20px; }
-        a { color: #0b6958; } .muted { color: #647772; }
-        .btn, button { display: inline-block; padding: 9px 16px; border: 1px solid #0f7d69; border-radius: 8px; background: #0f7d69; color: white; text-decoration: none; font: inherit; cursor: pointer; }
-        input { font: inherit; padding: 8px; max-width: 100%; }
-        .notice { padding: 12px; border-left: 4px solid #a1631c; background: #fff5e4; margin: 12px 0; }
-        .success { border-color: #1f7a4f; background: #eaf6ee; }
-        .table-wrap { overflow-x: auto; } table { border-collapse: collapse; width: 100%; }
-        th, td { padding: 12px; border-bottom: 1px solid #d8e4df; text-align: left; }
-        code { overflow-wrap: anywhere; } .ref { font-size: 13px; }
-    </style>
+    <link rel="stylesheet" href="{% static 'core/css/operations.css' %}">
 </head>
-<body><main>
-    <header><strong>MedCare GIS · VNPAY Sandbox</strong><p class="muted">Thanh toán thử nghiệm sau khám tại quầy</p></header>
+<body class="operations-page payments-page"><main class="page">
+    <header class="card page-header"><strong>MedCare GIS · VNPAY Sandbox</strong><p class="muted">Thanh toán thử nghiệm sau khám tại quầy</p></header>
     {% for message in messages %}<p role="status" class="notice {{ message.tags }}">{{ message }}</p>{% endfor %}
     {% block content %}{% endblock %}
 </main></body>

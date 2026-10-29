@@ -1,0 +1,110 @@
+/* New admin/payment pages only. Tokens and controls follow the existing
+   custom_admin_dashboard, custom_admin_model_list and custom_admin_form. */
+.operations-page {
+    --primary: #0f7d69;
+    --primary-hover: #0b6958;
+    --line: #d8e4df;
+    --muted: #647772;
+    margin: 0;
+    background: #f2f6f4;
+    color: #1e2a27;
+    font: 16px/1.6 "Segoe UI", Arial, sans-serif;
+}
+.operations-page *, .operations-page *::before, .operations-page *::after { box-sizing: border-box; }
+.operations-page.catalog-page { font-size: 15px; }
+.operations-page .page { max-width: 1360px; margin: 0 auto; padding: 18px 14px 30px; min-width: 0; }
+.operations-page.payments-page .page { max-width: 1100px; }
+.operations-page .card, .operations-page main > section {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 18px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.operations-page .page-header { padding: 14px 16px; }
+.operations-page .page-header p { margin: 4px 0 0; font-size: 13px; }
+.operations-page .head, .operations-page .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.operations-page .head { justify-content: space-between; }
+.operations-page h1 { margin: 8px 0; font-size: 26px; line-height: 1.25; }
+.operations-page h2 { font-size: 20px; line-height: 1.35; margin: 20px 0 10px; }
+.operations-page a { color: var(--primary-hover); }
+.operations-page .muted, .operations-page .helptext { color: var(--muted); }
+.operations-page .btn, .operations-page button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 13px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: #fff;
+    color: var(--primary);
+    font: 600 13px/1.5 "Segoe UI", Arial, sans-serif;
+    text-align: center;
+    text-decoration: none;
+    max-width: 100%;
+    white-space: normal;
+    cursor: pointer;
+}
+.operations-page .btn:hover, .operations-page button:hover { border-color: var(--primary); background: #f8fbfa; }
+.operations-page .btn.primary, .operations-page.payments-page button,
+.operations-page.payments-page .btn:not(.secondary) { background: var(--primary); border-color: var(--primary); color: #fff; }
+.operations-page .btn.primary:hover, .operations-page.payments-page button:hover,
+.operations-page.payments-page .btn:not(.secondary):hover { background: var(--primary-hover); }
+.operations-page :is(a, button, input, select, textarea, [tabindex]):focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.operations-page button:disabled { opacity: .6; cursor: not-allowed; }
+.operations-page input, .operations-page select, .operations-page textarea {
+    font: inherit;
+    padding: 10px 12px;
+    border: 1px solid #cbdbd5;
+    border-radius: 10px;
+    background: #fff;
+    color: inherit;
+    max-width: 100%;
+    min-width: 0;
+}
+.operations-page input[type="checkbox"] { width: auto; padding: 0; accent-color: var(--primary); }
+.operations-page .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin: 16px 0; }
+.operations-page .filters > label, .operations-page .filters > div { flex: 1 1 180px; min-width: 0; }
+.operations-page .filters label, .operations-page .field label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 5px; }
+.operations-page .filters :is(input, select) { display: block; width: 100%; margin-top: 5px; }
+.operations-page .field { margin-bottom: 16px; }
+.operations-page .field input:not([type="checkbox"]):not([type="hidden"]),
+.operations-page .field select, .operations-page .field textarea { width: 100%; }
+.operations-page .checkbox-field label { display: inline; margin-right: 8px; }
+.operations-page .helptext { display: block; margin-top: 5px; font-size: 13px; font-weight: 400; }
+.operations-page .errorlist { margin: 5px 0; padding-left: 18px; font-size: 14px; color: #8b2f2f; }
+.operations-page .notice { padding: 12px; border: 1px solid #e8d4b4; border-left: 4px solid #a1631c; border-radius: 10px; background: #fff5e4; margin: 12px 0; overflow-wrap: anywhere; }
+.operations-page .notice.success { border-color: #bfe9cf; border-left-color: #1f7a4f; background: #eefaf4; color: #176b3a; }
+.operations-page .notice.error { border-color: #e5c8c8; border-left-color: #8b2f2f; background: #fff1f1; color: #8b2f2f; }
+.operations-page .notice.info { background: #edf6f1; border-color: var(--line); border-left-color: var(--primary); }
+.operations-page .table-wrap { overflow-x: auto; max-width: 100%; margin: 16px 0; border: 1px solid var(--line); border-radius: 10px; }
+.operations-page table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 14px; }
+.operations-page th, .operations-page td { padding: 12px; border-bottom: 1px solid #e5efea; text-align: left; vertical-align: top; }
+.operations-page th { background: #f8fbfa; font-weight: 600; }
+.operations-page tr:last-child td { border-bottom: 0; }
+.operations-page tfoot { background: #f8fbfa; }
+.operations-page .money { white-space: nowrap; }
+.operations-page .badge, .operations-page .payment-status { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #edf1ef; font-size: 13px; font-weight: 600; }
+.operations-page .badge.active, .operations-page .payment-status[data-status="paid"], .operations-page .payment-status[data-status="success"] { background: #e5f4eb; color: #1f7a4f; }
+.operations-page .payment-status[data-status="unpaid"], .operations-page .payment-status[data-status="pending"] { background: #fff5e4; color: #855015; }
+.operations-page .payment-status[data-status="failed"], .operations-page .payment-status[data-status="cancelled"], .operations-page .payment-status[data-status="expired"] { background: #fff1f1; color: #8b2f2f; }
+.operations-page .ref { font-size: 13px; }
+.operations-page code, .operations-page .description { overflow-wrap: anywhere; }
+.operations-page .inline { display: inline; }
+.operations-page .pagination { margin-top: 16px; display: flex; gap: 16px; flex-wrap: wrap; }
+.operations-page dt { font-weight: 600; margin-top: 12px; }
+.operations-page dd { margin: 0; }
+@media (max-width: 600px) {
+    .operations-page .card, .operations-page main > section { padding: 16px; }
+    .operations-page .filters { display: grid; grid-template-columns: minmax(0, 1fr); }
+    .operations-page .filters :is(input, select), .operations-page .field :is(input, select, textarea) { font-size: 16px; }
+    .operations-page .btn, .operations-page button { min-height: 42px; }
+    .operations-page .table-wrap::before { content: "Vuốt ngang để xem đầy đủ bảng →"; display: block; padding: 8px 12px; color: var(--muted); font-size: 13px; }
+}

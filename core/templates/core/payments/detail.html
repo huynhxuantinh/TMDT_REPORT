@@ -13,25 +13,25 @@
     {% if amount_error %}<p class="notice">{{ amount_error }}</p>{% endif %}
     {% if invoice %}
         <h2>Hóa đơn #{{ invoice.pk }}: {{ invoice.so_tien|floatformat:'0g' }} VND</h2>
-        <p><a href="{% url 'receipt_view' invoice.pk %}" target="_blank" rel="noopener">Xem phiếu PDF</a> ·
-           <a href="{% url 'receipt_download' invoice.pk %}">Tải PDF</a> ·
-           <a href="{% url 'receipt_print' invoice.pk %}" target="_blank" rel="noopener">In phiếu</a></p>
+        <p class="actions"><a class="btn secondary" href="{% url 'receipt_view' invoice.pk %}" target="_blank" rel="noopener">Xem phiếu PDF</a>
+           <a class="btn secondary" href="{% url 'receipt_download' invoice.pk %}">Tải PDF</a>
+           <a class="btn secondary" href="{% url 'receipt_print' invoice.pk %}" target="_blank" rel="noopener">In phiếu</a></p>
         <p class="muted">Phiếu thanh toán nội bộ, không phải hóa đơn điện tử có giá trị pháp lý.</p>
         {% if invoice.nguon == 'services' %}
             <p>Phiếu khám #{{ invoice.phieu_kham_id }} · phiên bản {{ invoice.phien_ban }}.</p>
             <div class="table-wrap"><table>
                 <thead><tr><th>Dịch vụ</th><th>Đơn giá đã chốt</th><th>Số lượng</th><th>Thành tiền</th><th>BHYT MÔ PHỎNG hỗ trợ</th><th>Bệnh nhân trả</th></tr></thead>
                 <tbody>{% for line in invoice_lines %}<tr>
-                    <td>{{ line.ma_dich_vu }} · {{ line.ten_dich_vu }}</td><td>{{ line.don_gia|vnd }}</td>
-                    <td>{{ line.so_luong }}</td><td>{{ line.thanh_tien|vnd }}</td>
+                    <td>{{ line.ma_dich_vu }} · {{ line.ten_dich_vu }}</td><td class="money">{{ line.don_gia|vnd }}</td>
+                    <td>{{ line.so_luong }}</td><td class="money">{{ line.thanh_tien|vnd }}</td>
                     <td>{{ line.bhyt_ho_tro|vnd }} ({{ line.ty_le_bhyt }}%)<br><small>{{ line.bhyt_snapshot.ly_do }}{% if line.bhyt_snapshot.quy_tac %}<br>{{ line.bhyt_snapshot.quy_tac.ten }} · v{{ line.bhyt_snapshot.quy_tac.phien_ban }}{% endif %}</small></td><td>{{ line.benh_nhan_tra|vnd }}</td>
                 </tr>{% endfor %}</tbody>
-                <tfoot><tr><th colspan="3">Tổng</th><td>{{ invoice.tong_truoc_bhyt|vnd }}</td><td>{{ invoice.bhyt_ho_tro|vnd }}</td><td><strong>{{ invoice.so_tien|vnd }}</strong></td></tr></tfoot>
+                <tfoot><tr><th colspan="3">Tổng</th><td class="money">{{ invoice.tong_truoc_bhyt|vnd }}</td><td class="money">{{ invoice.bhyt_ho_tro|vnd }}</td><td class="money"><strong>{{ invoice.so_tien|vnd }}</strong></td></tr></tfoot>
             </table></div>
         {% else %}<p>Hóa đơn thử nghiệm cũ: giữ nguyên số tiền, không tự chuyển đổi sang chi tiết dịch vụ.</p>{% endif %}
         {% include 'core/insurance/invoice_summary.html' %}
         {% if invoice.can_doi_soat %}<p class="notice">Có kết quả VNPAY mâu thuẫn. Đã khóa lần thu mới; cần đối soát với VNPAY trước khi xử lý tiếp.</p>{% endif %}
-        <p><strong>{% if invoice.hoan_tat_bhyt %}Đã hoàn tất bằng BHYT MÔ PHỎNG{% else %}{{ invoice.get_trang_thai_display }}{% endif %}</strong>{% if invoice.ngay_thanh_toan %} · {{ invoice.ngay_thanh_toan|date:'d/m/Y H:i:s' }}{% endif %}</p>
+        <p><strong class="payment-status" data-status="{{ invoice.trang_thai }}">{% if invoice.hoan_tat_bhyt %}Đã hoàn tất bằng BHYT MÔ PHỎNG{% else %}{{ invoice.get_trang_thai_display }}{% endif %}</strong>{% if invoice.ngay_thanh_toan %} · {{ invoice.ngay_thanh_toan|date:'d/m/Y H:i:s' }}{% endif %}</p>
         {% if pending %}<p class="notice">Đang chờ xác nhận IPN. Không thu lại, kể cả khi đã đóng cổng thanh toán hoặc quá 15 phút. Kiểm tra ngrok và IPN trên VNPAY SIT Testing, sau đó tải lại trang.</p>{% endif %}
         {% if can_start %}
         <form method="post" action="{% url 'payment_start' invoice.pk %}">{% csrf_token %}
@@ -86,7 +86,7 @@
         <thead><tr><th>Tham chiếu / thời gian</th><th>Số tiền</th><th>Phương thức / trạng thái</th><th>Thông tin giao dịch</th></tr></thead>
         <tbody>{% for attempt in attempts %}<tr>
             <td><code class="ref">{{ attempt.ma_tham_chieu }}</code><br>{{ attempt.ngay_tao|date:'d/m/Y H:i:s' }}</td>
-            <td>{{ attempt.so_tien|floatformat:'0g' }} VND</td><td>{{ attempt.get_phuong_thuc_display }}<br>{{ attempt.get_trang_thai_display }}</td>
+            <td class="money">{{ attempt.so_tien|floatformat:'0g' }} VND</td><td>{{ attempt.get_phuong_thuc_display }}<br><span class="payment-status" data-status="{{ attempt.trang_thai }}">{{ attempt.get_trang_thai_display }}</span></td>
             <td>Nhân viên: {{ attempt.nguoi_tao.username|default:'—' }}<br>Bệnh viện ghi nhận: {{ attempt.benh_vien.ten|default:'Giao dịch cũ chưa lưu bệnh viện' }}<br>Hoàn tất: {{ attempt.hoan_tat_luc|date:'d/m/Y H:i:s'|default:'—' }}
             {% if attempt.phuong_thuc == 'VNPAY' %}<br>Mã phản hồi: {{ attempt.ma_phan_hoi|default:'—' }}<br>Trạng thái: {{ attempt.trang_thai_vnpay|default:'—' }}<br>Mã GD: {{ attempt.ma_giao_dich_vnpay|default:'—' }}{% endif %}</td>
         </tr>{% empty %}<tr><td colspan="4">Chưa có giao dịch.</td></tr>{% endfor %}</tbody>

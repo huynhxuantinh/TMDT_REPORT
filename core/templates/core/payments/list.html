@@ -7,7 +7,7 @@
     <p>Chọn ca đã hoàn tất để xem chi phí dịch vụ, hóa đơn và kết quả thanh toán.</p>
     {% if profile %}<p>Thu ngân: {{ user.username }} · {{ profile.benh_vien.ten }}</p>{% endif %}
     {% if monitor %}<p class="muted">Theo dõi toàn hệ thống · chỉ xem.</p>{% endif %}
-    <form method="get">
+    <form method="get" class="filters">
         <label>Tìm mã hóa đơn / tên bệnh nhân <input name="q" value="{{ q }}" maxlength="100"></label>
         <label>Trạng thái <select name="status">
             <option value="">Tất cả</option>

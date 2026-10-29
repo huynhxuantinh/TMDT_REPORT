@@ -2,3 +2,5 @@
 pypdf==6.21.4
 # Optional visual inspection of generated PDF artifacts.
 PyMuPDF==1.28.2
+# Optional Edge workflow QA (.tools/qa_browser.py); uses installed Microsoft Edge.
+playwright==1.64.1

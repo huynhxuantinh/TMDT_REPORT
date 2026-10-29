@@ -399,9 +399,11 @@ IPN: `/thanh-toan/vnpay/ipn/`. ReturnURL: `/thanh-toan/vnpay/return/`. Chỉ IPN
 
 **TASK 07 — PDF và Mailtrap Testing:** trang hóa đơn có nút xem/in/tải phiếu nội bộ A4 tiếng Việt và trạng thái email. Tiền mặt/IPN thành công sẽ gửi PDF sau commit, chỉ vào Mailtrap Testing; có khóa chống gửi trùng và thử lại có kiểm soát. Xem [hướng dẫn cấu hình, URL và đối soát email](docs/TASK07_PDF_MAILTRAP.md).
 
-- **Username = số điện thoại**: bệnh nhân đăng nhập bằng `so_dien_thoai`, được lưu làm `User.username`.
+- **Tài khoản bệnh nhân**: hỗ trợ username gồm chữ/số và tài khoản số điện thoại cũ. Hồ sơ được liên kết qua `BenhNhan.user`; đổi số liên hệ không đổi tên đăng nhập. Đăng ký mới có ô số điện thoại riêng.
 - **Cache**: trang chủ cache kết quả filter 60 giây (LocMemCache, per-process).
 - **GIS**: tọa độ lưu theo EPSG:4326 (WGS84). Tự động convert từ Web Mercator nếu cần.
 - **Ảnh**: tối đa 5MB/file, chấp nhận jpg/jpeg/png/webp.
 - **Phân quyền admin**: kiểm tra `is_staff` hoặc `is_superuser` trong mọi view `/quan-tri/`.
 - **Quên mật khẩu**: flow 3 bước qua session + OTP email (không dùng token URL).
+
+**TASK 08 — Kiểm tra tổng thể:** xem [báo cáo kiểm thử và hướng dẫn nghiệm thu](docs/TASK08_NGHIEM_THU.md). Phân biệt kết quả kiểm thử tự động với giao dịch VNPAY Sandbox và kiểm tra Mailtrap Inbox thực tế.

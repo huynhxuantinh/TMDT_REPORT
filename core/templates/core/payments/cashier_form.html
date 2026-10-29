@@ -5,6 +5,22 @@
     <a href="{% url 'cashier_list' %}">← Danh sách thu ngân</a>
     <h1>{% if profile %}Sửa thu ngân{% else %}Tạo tài khoản thu ngân{% endif %}</h1>
     <p>Tài khoản sử dụng màn hình đăng nhập hiện tại. Không được cấp quyền Admin hoặc bác sĩ.</p>
-    <form method="post">{% csrf_token %}{{ form.as_p }}<button type="submit">Lưu thu ngân</button></form>
+    <form method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {% for field in form %}
+        <div class="field{% if field.field.widget.input_type == 'checkbox' %} checkbox-field{% endif %}">
+            {{ field.label_tag }}
+            {{ field }}
+            {{ field.errors }}
+            {% if field.help_text %}<span class="helptext" id="{{ field.auto_id }}_helptext">
+                {% if field.name == 'username' %}Bắt buộc. Tối đa 150 ký tự, gồm chữ, số và các ký tự @/./+/-/_.
+                {% elif field.name == 'is_active' %}Cho phép tài khoản hoạt động. Bỏ chọn để vô hiệu hóa tài khoản.
+                {% else %}{{ field.help_text|safe }}{% endif %}
+            </span>{% endif %}
+        </div>
+        {% endfor %}
+        <button type="submit">Lưu thu ngân</button>
+    </form>
 </section>
 {% endblock %}
