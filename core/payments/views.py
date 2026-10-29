@@ -80,7 +80,7 @@ def payment_list(request, monitor=False):
     return render(request, 'core/payments/list.html', {'page_obj': page, 'q': query, 'status': status,
         'profile': manager_profile(request.user), 'monitor': monitor,
         'detail_route': 'cashier_monitor_detail' if monitor else 'payment_detail',
-        'show_technical': settings.DEBUG or can_admin(request.user)})
+        'show_technical': can_admin(request.user)})
 
 
 @never_cache
@@ -120,7 +120,7 @@ def payment_detail(request, lich_id, monitor=False):
         and (not invoice or not invoice_lock_reason(invoice))
     )
     service_context = exam_services_context(appointment, phieu) if can_edit_services else {}
-    show_technical = settings.DEBUG or can_admin(request.user)
+    show_technical = can_admin(request.user)
     audit_entries = []
     if invoice:
         audit_entries = list(
@@ -276,8 +276,7 @@ def vnpay_return(request):
         if attempt is None or services.validate_callback(params, attempt):
             raise vnpay.PaymentError('Invalid result')
         context = {'attempt': attempt, 'can_collect': services.can_collect(request.user)
-                   and scoped_appointments(request.user).filter(pk=attempt.hoa_don.lich_kham_id).exists(),
-                   'show_technical': settings.DEBUG or can_admin(request.user)}
+                   and scoped_appointments(request.user).filter(pk=attempt.hoa_don.lich_kham_id).exists()}
     except vnpay.PaymentError:
         context['error'] = 'Không xác minh được thông tin trả về. Vui lòng nhờ nhân viên kiểm tra hóa đơn.'
     return render(request, 'core/payments/return.html', context, status=400 if context.get('error') else 200)
