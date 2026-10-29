@@ -395,6 +395,8 @@ Test bao gồm: `DoctorFlowTests`, kiểm tra booking, tạo phiếu khám, chuy
 
 IPN: `/thanh-toan/vnpay/ipn/`. ReturnURL: `/thanh-toan/vnpay/return/`. Chỉ IPN hợp lệ xác nhận thanh toán VNPAY; giao dịch chưa rõ kết quả không được tự thử lại. Hóa đơn 0đ do BHYT MÔ PHỎNG được hoàn tất riêng, không qua VNPAY.
 
+**IPN đến muộn:** hết hạn nội bộ không còn đồng nghĩa với "VNPAY báo hết hạn". Sau `het_han_luc`, hệ thống giữ khóa thu tiền thêm `VNPAY_IPN_GRACE_MINUTES` (mặc định 45 phút); quá thời gian đó giao dịch mới chuyển sang trạng thái `timeout` (chưa có kết quả), còn `expired` chỉ dùng khi VNPAY trả mã 11. IPN thành công đến sau vẫn tất toán hóa đơn nếu còn nợ; nếu hóa đơn đã thu bằng tiền mặt/lần khác, giao dịch được ghi là **thu trùng — cần hoàn tiền**, khóa mọi lần thu mới và không cho Admin mở khóa đối soát.
+
 **TASK 06 — Thu ngân và tiền mặt:** Admin tạo/phân công thu ngân tại `/quan-tri/thu-ngan/`; thu ngân dùng `/thanh-toan/` trong phạm vi một bệnh viện. Hỗ trợ thu đủ bằng tiền mặt, kể cả số phải trả 1–4.999đ, dùng chung khóa chống thu trùng với VNPAY. Admin giám sát toàn hệ thống tại `/quan-tri/thu-ngan/hoa-don/`. Xem [hướng dẫn và báo cáo TASK 06](docs/TASK06_THU_NGAN_TIEN_MAT.md).
 
 ## Ghi chú kỹ thuật

@@ -9,6 +9,7 @@ from django.utils import timezone
 from core.models import (BacSi, ChiTietHoaDon, DanhMucDichVu, DichVuThucHien,
                          HoaDon, LichKham, LogHeThong, PhieuKham)
 from core.insurance.services import calculate_support, support_amount
+from core.payments.state import any_blocking
 
 
 class BillingError(ValidationError):
@@ -24,9 +25,7 @@ def invoice_lock_reason(invoice):
         if invoice.hoan_tat_bhyt:
             return 'Hóa đơn đã hoàn tất nhờ BHYT MÔ PHỎNG, bệnh nhân trả 0đ. Dịch vụ và chi phí đã khóa.'
         return 'Hóa đơn đã thanh toán. Dịch vụ và chi phí đã khóa.'
-    if invoice.giao_dichs.exclude(trang_thai__in=['failed', 'cancelled', 'expired']).exclude(
-        trang_thai='pending', het_han_luc__lte=timezone.now(),
-    ).exists():
+    if any_blocking(invoice.giao_dichs.all(), timezone.now()):
         return 'VNPAY đang xử lý, chưa xác định kết quả hoặc đã thành công. Chưa được điều chỉnh dịch vụ.'
     return ''
 

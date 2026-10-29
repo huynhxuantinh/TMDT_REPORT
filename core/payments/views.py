@@ -19,6 +19,7 @@ from core.billing.services import BillingError, bill_exam, validate_invoice_tota
 from core.billing.services import invoice_lock_reason
 from core.exam_services.services import ExamServiceError, form_context as exam_services_context, sync_services
 from . import services, vnpay
+from . import state as payment_state
 from .access import can_admin, manager_profile, scoped_appointments
 from core.receipts.delivery import ERROR_MESSAGES, eligible
 
@@ -55,7 +56,8 @@ def payment_list(request, monitor=False):
         'benh_nhan', 'bac_si__benh_vien', 'hoa_don'
     ).prefetch_related('hoa_don__giao_dichs').annotate(
         payment_pending=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai='pending')),
-        payment_failed=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai__in=['failed', 'cancelled', 'expired'])),
+        payment_failed=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai__in=['failed', 'cancelled', 'expired', 'timeout'])),
+        payment_refund=Exists(GiaoDichThanhToan.objects.filter(hoa_don__lich_kham_id=OuterRef('pk'), trang_thai='duplicate')),
     ).order_by('-ngay_kham', '-pk')
     query = request.GET.get('q', '').strip()[:100]
     if query:
@@ -95,8 +97,12 @@ def payment_detail(request, lich_id, monitor=False):
     except vnpay.PaymentError as exc:
         completion_error = str(exc)
     now = timezone.now()
-    pending = any(attempt.trang_thai == 'pending' and attempt.het_han_luc > now for attempt in attempts)
-    overdue_pending = any(attempt.trang_thai == 'pending' and attempt.het_han_luc <= now for attempt in attempts)
+    pending = any(attempt.trang_thai == 'pending' and payment_state.blocks_new_charge(attempt, now)
+                  for attempt in attempts)
+    overdue_pending = any(attempt.trang_thai == 'pending' and not payment_state.blocks_new_charge(attempt, now)
+                          for attempt in attempts)
+    refund_attempt = next((attempt for attempt in attempts
+                           if attempt.trang_thai == GiaoDichThanhToan.TrangThai.THU_TRUNG), None)
     config_error = vnpay.configuration_error()
     invoice_error = ''
     if invoice:
@@ -107,8 +113,7 @@ def payment_detail(request, lich_id, monitor=False):
     amount_error = payable_error(invoice) if invoice else ''
     email_row = EmailPhieuThanhToan.objects.filter(hoa_don=invoice).first() if invoice else None
     available = bool(invoice and invoice.trang_thai == 'unpaid' and not invoice.can_doi_soat
-                     and not any(a.trang_thai not in ['failed', 'cancelled', 'expired']
-                                 and not (a.trang_thai == 'pending' and a.het_han_luc <= now) for a in attempts)
+                     and not payment_state.any_blocking(attempts, now)
                      and not completion_error and not invoice_error and not monitor)
     can_edit_services = bool(
         phieu and not monitor and services.can_collect(request.user)
@@ -127,12 +132,14 @@ def payment_detail(request, lich_id, monitor=False):
         'lich': appointment, 'invoice': invoice, 'attempts': attempts,
         'completion_error': completion_error, 'pending': pending, 'overdue_pending': overdue_pending, 'invoice_error': invoice_error,
         'amount_error': amount_error,
+        'refund_attempt': refund_attempt, 'refund_required': bool(refund_attempt),
         'invoice_lines': list(invoice.chi_tiet_hien_hanh) if invoice else [],
         'invoice_logs': LogHeThong.objects.filter(model_name='HoaDon', object_id=invoice.pk).select_related('nguoi_thuc_hien') if invoice else [],
         'config_error': '' if invoice and invoice.hoan_tat_bhyt else (config_error if show_technical else ('Cổng thanh toán hiện chưa sẵn sàng. Vui lòng liên hệ Admin.' if config_error else '')),
         'can_start': available and not config_error and not amount_error,
         'can_edit_services': can_edit_services,
-        'can_resolve_reconciliation': bool(monitor and invoice and invoice.can_doi_soat and can_admin(request.user)),
+        'can_resolve_reconciliation': bool(monitor and invoice and invoice.can_doi_soat
+                                           and not refund_attempt and can_admin(request.user)),
         'show_technical': show_technical,
         'service_phieu': phieu,
         **service_context,

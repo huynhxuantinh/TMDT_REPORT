@@ -290,9 +290,88 @@ class VnpayPaymentTests(TestCase):
         self.assert_unpaid()
         self.assertIsNotNone(services.expire_pending_payment(attempt.pk))
         attempt.refresh_from_db()
-        self.assertEqual(attempt.trang_thai, 'expired')
+        self.assertEqual(attempt.trang_thai, 'timeout')
         self.assertIsNotNone(attempt.hoan_tat_luc)
         self.assertTrue(LogHeThong.objects.filter(model_name='GiaoDichThanhToan', object_id=attempt.pk).exists())
+        self.assertEqual(self.start().trang_thai, 'pending')
+
+    def move_past_ipn_grace(self, attempt, hours=1):
+        GiaoDichThanhToan.objects.filter(pk=attempt.pk).update(
+            het_han_luc=timezone.now() - datetime.timedelta(hours=hours))
+
+    def test_late_success_ipn_after_local_timeout_still_pays_the_invoice(self):
+        """The regression: money left VNPAY, our timer gave up, invoice stayed unpaid."""
+        attempt = self.start()
+        self.move_past_ipn_grace(attempt)
+        self.assertIsNotNone(services.expire_pending_payment(attempt.pk))
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'timeout')
+        self.assert_unpaid()
+
+        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '00')
+
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'success')
+        self.assertEqual(self.invoice.trang_thai, 'paid')
+        self.assertEqual(self.invoice.ngay_thanh_toan, attempt.hoan_tat_luc)
+        self.assertFalse(self.invoice.can_doi_soat)
+        self.assertEqual(GiaoDichThanhToan.objects.filter(trang_thai='success').count(), 1)
+        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '02')
+        self.assertEqual(GiaoDichThanhToan.objects.filter(trang_thai='success').count(), 1)
+
+    def test_local_expiry_alone_does_not_release_the_invoice_until_grace_ends(self):
+        attempt = self.start()
+        GiaoDichThanhToan.objects.filter(pk=attempt.pk).update(
+            het_han_luc=timezone.now() - datetime.timedelta(minutes=1))
+        self.assertIsNone(services.expire_pending_payment(attempt.pk))
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'pending')
+        with self.assertRaises(vnpay.PaymentError):
+            self.start()
+        with self.assertRaises(vnpay.PaymentError):
+            services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
+        self.assert_unpaid()
+
+    def test_late_success_after_cash_is_flagged_as_duplicate_refund(self):
+        attempt = self.start()
+        self.move_past_ipn_grace(attempt)
+        services.expire_pending_payment(attempt.pk)
+        services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
+
+        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '00')
+        self.assertEqual(self.ipn(self.callback(attempt))['RspCode'], '02')
+
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'duplicate')
+        self.assertEqual(attempt.ma_giao_dich_vnpay, '12345678')
+        self.assertEqual(self.invoice.trang_thai, 'paid')
+        self.assertTrue(self.invoice.can_doi_soat)
+        self.assertTrue(LogHeThong.objects.filter(
+            model_name='GiaoDichThanhToan', object_id=attempt.pk, ghi_chu__contains='Thu trung').exists())
+        with self.assertRaises(vnpay.PaymentError):
+            services.resolve_reconciliation(self.invoice.pk, self.admin)
+        with self.assertRaises(vnpay.PaymentError):
+            services.collect_cash(self.invoice.pk, self.admin, expected_version=self.invoice.phien_ban)
+        detail = self.client.get(reverse('payment_detail', args=[self.appointment.pk]))
+        self.assertContains(detail, 'Thu trùng — cần hoàn tiền')
+        self.assertNotContains(detail, 'name="received_full"')
+        monitor = self.client.get(reverse('cashier_monitor'))
+        self.assertContains(monitor, 'Thu trùng — cần hoàn tiền')
+
+    def test_late_provider_failure_closes_timeout_without_flagging_invoice(self):
+        attempt = self.start()
+        self.move_past_ipn_grace(attempt)
+        services.expire_pending_payment(attempt.pk)
+
+        self.assertEqual(self.ipn(self.callback(attempt, '24', '02'))['RspCode'], '00')
+
+        attempt.refresh_from_db()
+        self.invoice.refresh_from_db()
+        self.assertEqual(attempt.trang_thai, 'cancelled')
+        self.assertFalse(self.invoice.can_doi_soat)
+        self.assert_unpaid()
         self.assertEqual(self.start().trang_thai, 'pending')
 
     def test_admin_can_close_reconciliation_after_checking_vnpay(self):
@@ -302,7 +381,7 @@ class VnpayPaymentTests(TestCase):
         self.assertRedirects(response, reverse('cashier_monitor_detail', args=[self.appointment.pk]))
         attempt.refresh_from_db()
         self.invoice.refresh_from_db()
-        self.assertEqual(attempt.trang_thai, 'expired')
+        self.assertEqual(attempt.trang_thai, 'timeout')
         self.assertFalse(self.invoice.can_doi_soat)
         self.assertTrue(LogHeThong.objects.filter(model_name='HoaDon', object_id=self.invoice.pk,
                                                   ghi_chu__contains='ket thuc doi soat').exists())

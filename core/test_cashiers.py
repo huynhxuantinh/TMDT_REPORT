@@ -240,7 +240,7 @@ class CashPaymentTests(CashierFixtures, TestCase):
         cash = self.cash(invoice)
         self.assertEqual(cash.trang_thai, 'success')
         attempt.refresh_from_db()
-        self.assertEqual(attempt.trang_thai, 'expired')
+        self.assertEqual(attempt.trang_thai, 'timeout')
         self.assertEqual(process_ipn(callback(attempt, '99', '02'))[0], '99')
         invoice.refresh_from_db()
         self.assertTrue(invoice.can_doi_soat)

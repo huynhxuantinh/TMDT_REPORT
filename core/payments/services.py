@@ -9,28 +9,50 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.models import GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
-from . import vnpay
+from . import state, vnpay
 from .access import can_collect, manager_profile, require_scope
 
 
+def _apply_vnpay_result(attempt, params):
+    """Copy the provider result onto the attempt without deciding its meaning."""
+    attempt.ma_phan_hoi = params['vnp_ResponseCode']
+    attempt.trang_thai_vnpay = params['vnp_TransactionStatus']
+    attempt.ma_giao_dich_vnpay = params['vnp_TransactionNo']
+    attempt.vnp_pay_date = params.get('vnp_PayDate', '')
+
+
+def _log_attempt(attempt, before, note, actor=None):
+    LogHeThong.objects.create(
+        model_name='GiaoDichThanhToan', object_id=attempt.pk, hanh_dong='update',
+        du_lieu_cu=before,
+        du_lieu_moi={'trang_thai': attempt.trang_thai, 'hoan_tat_luc': attempt.hoan_tat_luc.isoformat()},
+        nguoi_thuc_hien=actor, ghi_chu=note,
+    )
+
+
 def _expire_pending_locked(invoice, *, now=None, actor=None, note=''):
-    """Expire one overdue VNPAY attempt while its invoice is already locked."""
+    """Close an overdue VNPAY attempt once its late-IPN window is over.
+
+    Before that window closes the attempt stays `pending` on purpose: a success
+    notification that arrives late must still be able to settle the invoice.
+    The attempt becomes `timeout`, never `expired` — VNPAY never said it expired.
+    """
     now = now or timezone.now()
     attempt = GiaoDichThanhToan.objects.select_for_update().filter(
         hoa_don=invoice, phuong_thuc='VNPAY', trang_thai='pending', het_han_luc__lte=now,
     ).first()
     if attempt is None:
         return None
+    if now < state.grace_deadline(attempt):
+        return None
     before = {'trang_thai': attempt.trang_thai, 'het_han_luc': attempt.het_han_luc.isoformat()}
-    attempt.trang_thai = GiaoDichThanhToan.TrangThai.HET_HAN
+    attempt.trang_thai = GiaoDichThanhToan.TrangThai.QUA_HAN_CHO
     attempt.hoan_tat_luc = now
     attempt.save(update_fields=['trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
-    LogHeThong.objects.create(
-        model_name='GiaoDichThanhToan', object_id=attempt.pk, hanh_dong='update',
-        du_lieu_cu=before,
-        du_lieu_moi={'trang_thai': attempt.trang_thai, 'hoan_tat_luc': now.isoformat()},
-        nguoi_thuc_hien=actor,
-        ghi_chu=note or 'Tu dong het han vi khong nhan duoc IPN truoc thoi diem het han.',
+    _log_attempt(
+        attempt, before,
+        note or 'Qua thoi gian cho IPN nhung VNPAY chua tra ket qua. Chuyen sang timeout de doi soat.',
+        actor,
     )
     return attempt
 
@@ -66,19 +88,20 @@ def resolve_reconciliation(invoice_id, user):
         raise vnpay.PaymentError('Hoa don nay khong o trang thai can doi soat.')
     if invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN:
         raise vnpay.PaymentError('Hoa don da thanh toan, khong the mo khoa thu cong.')
+    if invoice.giao_dichs.filter(trang_thai=GiaoDichThanhToan.TrangThai.THU_TRUNG).exists():
+        # Money was taken twice; releasing the invoice would let the patient pay a third time.
+        raise vnpay.PaymentError('Hoa don co khoan thu trung can hoan tien; khong duoc mo khoa de thu tiep.')
     for attempt in GiaoDichThanhToan.objects.select_for_update().filter(
         hoa_don=invoice, phuong_thuc='VNPAY', trang_thai='pending',
     ):
         before = {'trang_thai': attempt.trang_thai}
-        attempt.trang_thai = GiaoDichThanhToan.TrangThai.HET_HAN
+        attempt.trang_thai = GiaoDichThanhToan.TrangThai.QUA_HAN_CHO
         attempt.hoan_tat_luc = timezone.now()
         attempt.save(update_fields=['trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
-        LogHeThong.objects.create(
-            model_name='GiaoDichThanhToan', object_id=attempt.pk, hanh_dong='update',
-            du_lieu_cu=before,
-            du_lieu_moi={'trang_thai': attempt.trang_thai, 'hoan_tat_luc': attempt.hoan_tat_luc.isoformat()},
-            nguoi_thuc_hien=user,
-            ghi_chu='Admin ket thuc doi soat sau khi xac nhan khong co giao dich VNPAY thanh cong.',
+        _log_attempt(
+            attempt, before,
+            'Admin ket thuc doi soat sau khi xac nhan khong co giao dich VNPAY thanh cong.',
+            user,
         )
     invoice.can_doi_soat = False
     invoice.save(update_fields=['can_doi_soat', 'ngay_cap_nhat'])
@@ -138,7 +161,7 @@ def start_payment(invoice_id, user, ip_address):
         raise vnpay.PaymentError('Hóa đơn có kết quả VNPAY mâu thuẫn, cần đối soát trước khi thu tiếp.')
     if invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN:
         raise vnpay.PaymentError('Hóa đơn đã thanh toán, không thể thu thêm.')
-    if invoice.giao_dichs.filter(trang_thai__in=['pending', 'success']).exists():
+    if invoice.giao_dichs.exclude(trang_thai__in=state.RELEASABLE).exists():
         raise vnpay.PaymentError('Giao dịch đang chờ xác nhận hoặc đã thành công. Không tạo lần thu mới; hãy kiểm tra IPN.')
     from core.billing.services import BillingError, validate_invoice_total
     try:
@@ -171,8 +194,8 @@ def collect_cash(invoice_id, user, *, expected_version):
         raise vnpay.PaymentError('Hóa đơn đã thanh toán, không được thu thêm.')
     if invoice.can_doi_soat:
         raise vnpay.PaymentError('Hóa đơn cần đối soát; chưa được thu tiền mặt.')
-    if invoice.giao_dichs.exclude(trang_thai__in=['failed', 'cancelled', 'expired']).exists():
-        raise vnpay.PaymentError('Giao dịch đang xử lý hoặc chưa rõ kết quả; chưa được thu tiền mặt.')
+    if invoice.giao_dichs.exclude(trang_thai__in=state.RELEASABLE).exists():
+        raise vnpay.PaymentError('Giao dịch đang xử lý, còn trong thời gian chờ IPN hoặc chưa rõ kết quả; chưa được thu tiền mặt.')
     if str(invoice.phien_ban) != str(expected_version):
         raise vnpay.PaymentError('Hóa đơn đã thay đổi. Tải lại và kiểm tra số tiền trước khi xác nhận.')
     from core.billing.services import BillingError, validate_invoice_total
@@ -220,6 +243,58 @@ def validate_callback(params, payment):
     return None
 
 
+def _settle_after_local_timeout(invoice, attempt, params, outcome):
+    """Apply an IPN that arrived after this attempt stopped waiting.
+
+    VNPAY alone decides whether money moved. Our local timer running out is not
+    evidence of anything, so a verified success still settles the invoice; if
+    the invoice is already settled the money was taken twice and must be refunded.
+    """
+    before = {'trang_thai': attempt.trang_thai, 'ma_giao_dich_vnpay': attempt.ma_giao_dich_vnpay}
+    _apply_vnpay_result(attempt, params)
+    now = timezone.now()
+    if outcome == 'pending':
+        return '99', 'Payment pending; retry notification'
+    attempt.hoan_tat_luc = now
+    if outcome != 'success':
+        attempt.trang_thai = outcome
+        attempt.save(update_fields=['ma_phan_hoi', 'trang_thai_vnpay', 'ma_giao_dich_vnpay',
+                                    'vnp_pay_date', 'trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
+        _log_attempt(attempt, before, f'IPN den sau thoi gian cho: VNPAY bao {outcome}; khong co tien chuyen.')
+        return '00', 'Confirm Success'
+    if invoice.so_tien != attempt.so_tien:
+        return '04', 'Invalid amount'
+    settled = (invoice.trang_thai == HoaDon.TrangThai.DA_THANH_TOAN
+               or GiaoDichThanhToan.objects.filter(
+                   hoa_don=invoice, trang_thai=GiaoDichThanhToan.TrangThai.THANH_CONG).exists())
+    if settled:
+        attempt.trang_thai = GiaoDichThanhToan.TrangThai.THU_TRUNG
+        attempt.save(update_fields=['ma_phan_hoi', 'trang_thai_vnpay', 'ma_giao_dich_vnpay',
+                                    'vnp_pay_date', 'trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
+        invoice.can_doi_soat = True
+        invoice.save(update_fields=['can_doi_soat', 'ngay_cap_nhat'])
+        _log_attempt(
+            attempt, before,
+            'Thu trung: IPN thanh cong den sau khi hoa don da thanh toan. Can hoan tien cho benh nhan.',
+        )
+        LogHeThong.objects.create(
+            model_name='HoaDon', object_id=invoice.pk, hanh_dong='update',
+            du_lieu_cu={'can_doi_soat': False}, du_lieu_moi={'can_doi_soat': True},
+            ghi_chu='Phat hien thu trung VNPAY sau khi hoa don da thanh toan; khoa thu tien va can hoan tien.',
+        )
+        return '00', 'Duplicate payment recorded; refund required'
+    attempt.trang_thai = GiaoDichThanhToan.TrangThai.THANH_CONG
+    attempt.save(update_fields=['ma_phan_hoi', 'trang_thai_vnpay', 'ma_giao_dich_vnpay',
+                                'vnp_pay_date', 'trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
+    invoice.trang_thai = HoaDon.TrangThai.DA_THANH_TOAN
+    invoice.ngay_thanh_toan = now
+    invoice.save(update_fields=['trang_thai', 'ngay_thanh_toan', 'ngay_cap_nhat'])
+    _log_attempt(attempt, before, 'IPN thanh cong den sau thoi gian cho; ghi nhan hoa don da thanh toan.')
+    from core.receipts.delivery import schedule_confirmation
+    schedule_confirmation(invoice)
+    return '00', 'Confirm Success'
+
+
 @transaction.atomic
 def process_ipn(params):
     """Caller MUST verify HMAC before entering this service."""
@@ -233,10 +308,16 @@ def process_ipn(params):
     invalid = validate_callback(params, attempt)
     if invalid:
         return invalid
-    state = vnpay.result_state(params['vnp_ResponseCode'], params['vnp_TransactionStatus'])
+    outcome = vnpay.result_state(params['vnp_ResponseCode'], params['vnp_TransactionStatus'])
     if attempt.trang_thai != 'pending':
-        if attempt.trang_thai == state and attempt.ma_giao_dich_vnpay == params['vnp_TransactionNo']:
+        if attempt.trang_thai == outcome and attempt.ma_giao_dich_vnpay == params['vnp_TransactionNo']:
             return '02', 'Order already confirmed'
+        if (attempt.trang_thai == GiaoDichThanhToan.TrangThai.THU_TRUNG and outcome == 'success'
+                and attempt.ma_giao_dich_vnpay == params['vnp_TransactionNo']):
+            # Refund case already recorded: acknowledge so VNPAY stops retrying.
+            return '02', 'Order already confirmed'
+        if attempt.trang_thai == GiaoDichThanhToan.TrangThai.QUA_HAN_CHO:
+            return _settle_after_local_timeout(invoice, attempt, params, outcome)
         # A later contradictory callback must not leave a failed invoice retryable.
         # Preserve the original terminal record and freeze new charges for review.
         invoice.can_doi_soat = True
@@ -246,18 +327,16 @@ def process_ipn(params):
         return '04', 'Invalid amount'
     if invoice.trang_thai == 'paid':
         return '02', 'Order already confirmed'
-    attempt.ma_phan_hoi = params['vnp_ResponseCode']
-    attempt.trang_thai_vnpay = params['vnp_TransactionStatus']
-    attempt.ma_giao_dich_vnpay = params['vnp_TransactionNo']
-    attempt.vnp_pay_date = params.get('vnp_PayDate', '')
-    attempt.trang_thai = state
-    if state != 'pending':
+    _apply_vnpay_result(attempt, params)
+    attempt.trang_thai = outcome
+    if outcome != 'pending':
         attempt.hoan_tat_luc = timezone.now()
     attempt.save(update_fields=['ma_phan_hoi', 'trang_thai_vnpay', 'ma_giao_dich_vnpay', 'vnp_pay_date', 'trang_thai', 'hoan_tat_luc', 'ngay_cap_nhat'])
-    if state == 'pending':
-        # Ask for IPN retry; do not permit a new charge even after local expiry.
+    if outcome == 'pending':
+        # Ask for IPN retry. The invoice stays frozen during the late-IPN window;
+        # only then does the attempt become 'timeout' and a new charge become legal.
         return '99', 'Payment pending; retry notification'
-    if state == 'success':
+    if outcome == 'success':
         invoice.trang_thai = HoaDon.TrangThai.DA_THANH_TOAN
         invoice.ngay_thanh_toan = attempt.hoan_tat_luc
         invoice.save(update_fields=['trang_thai', 'ngay_thanh_toan', 'ngay_cap_nhat'])

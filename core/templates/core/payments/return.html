@@ -4,7 +4,11 @@
     <h1>Kết quả thanh toán</h1>
     {% if error %}<p class="notice">{{ error }}</p>{% else %}
         <p>Mã tham chiếu: <code>{{ attempt.ma_tham_chieu }}</code></p>
-        {% if attempt.hoa_don.can_doi_soat %}
+        {% if attempt.trang_thai == 'duplicate' %}
+            <p class="notice">Khoản thanh toán này được VNPAY xác nhận thành công sau khi hóa đơn đã hoàn tất, nên được ghi nhận là <strong>thu trùng</strong>. Không thu thêm tiền; vui lòng liên hệ nhân viên để được hoàn lại.</p>
+        {% elif attempt.trang_thai == 'timeout' %}
+            <p class="notice">Chưa có kết quả xác nhận từ VNPAY (quá hạn chờ IPN). Hóa đơn đang được khóa để tránh thu trùng; vui lòng nhờ nhân viên kiểm tra.</p>
+        {% elif attempt.hoa_don.can_doi_soat %}
             <p class="notice">Kết quả giao dịch cần đối soát với VNPAY. Đã khóa lần thu mới; vui lòng nhờ nhân viên kiểm tra.</p>
         {% elif attempt.trang_thai == 'success' %}
             <p class="notice success">Thanh toán thành công. Hệ thống đã nhận IPN hợp lệ và ghi nhận hóa đơn đã thanh toán.</p>

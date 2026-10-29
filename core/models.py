@@ -214,7 +214,13 @@ class GiaoDichThanhToan(models.Model):
         THANH_CONG = 'success', 'Thành công'
         THAT_BAI = 'failed', 'Thất bại'
         HUY = 'cancelled', 'Đã hủy'
-        HET_HAN = 'expired', 'Hết hạn'
+        HET_HAN = 'expired', 'Hết hạn — VNPAY báo hết hạn'
+        # Local expiry only: VNPAY never told us the outcome. A late IPN may still
+        # prove the money moved, so this state must never be treated as final.
+        QUA_HAN_CHO = 'timeout', 'Quá hạn chờ IPN — chưa có kết quả'
+        # A verified success arrived after the invoice was settled: money was
+        # taken twice and has to be refunded, not collected again.
+        THU_TRUNG = 'duplicate', 'Thu trùng — cần hoàn tiền'
 
     hoa_don = models.ForeignKey(HoaDon, on_delete=models.PROTECT, related_name='giao_dichs')
     ma_tham_chieu = models.CharField(max_length=32, unique=True, default=payment_reference, editable=False)
@@ -238,7 +244,7 @@ class GiaoDichThanhToan(models.Model):
         constraints = [
             models.CheckConstraint(condition=(models.Q(so_tien__lte=9999999999) & (models.Q(phuong_thuc='VNPAY', so_tien__gte=5000) | models.Q(phuong_thuc='CASH', so_tien__gte=1))), name='giaodich_method_amount'),
             models.CheckConstraint(condition=(models.Q(phuong_thuc='VNPAY', het_han_luc__isnull=False) | models.Q(phuong_thuc='CASH', trang_thai='success', benh_vien__isnull=False, het_han_luc__isnull=True, tmn_code='', ma_phan_hoi='', trang_thai_vnpay='', ma_giao_dich_vnpay='', vnp_pay_date='')), name='giaodich_valid_method'),
-            models.CheckConstraint(condition=(models.Q(trang_thai='pending', hoan_tat_luc__isnull=True) | models.Q(trang_thai__in=['success', 'failed', 'cancelled', 'expired'], hoan_tat_luc__isnull=False)), name='giaodich_valid_state'),
+            models.CheckConstraint(condition=(models.Q(trang_thai='pending', hoan_tat_luc__isnull=True) | models.Q(trang_thai__in=['success', 'failed', 'cancelled', 'expired', 'timeout', 'duplicate'], hoan_tat_luc__isnull=False)), name='giaodich_valid_state'),
             models.UniqueConstraint(fields=['hoa_don'], condition=models.Q(trang_thai='pending'), name='giaodich_one_pending_invoice'),
             models.UniqueConstraint(fields=['hoa_don'], condition=models.Q(trang_thai='success'), name='giaodich_one_success_invoice'),
         ]

@@ -5,6 +5,7 @@ from threading import Barrier, Event
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
+from django.conf import settings
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import DatabaseError, IntegrityError, close_old_connections, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
@@ -239,7 +240,10 @@ class InsuranceBillingTests(InsuranceFixtures, TestCase):
         rule = self.rule('80')
         invoice = self.invoice()
         attempt, _ = start_payment(invoice.pk, self.admin, '127.0.0.1')
-        GiaoDichThanhToan.objects.filter(pk=attempt.pk).update(het_han_luc=timezone.now())
+        # Local expiry alone no longer releases the invoice: the late-IPN window
+        # must be over before the amount can change.
+        GiaoDichThanhToan.objects.filter(pk=attempt.pk).update(
+            het_han_luc=timezone.now() - datetime.timedelta(minutes=settings.VNPAY_IPN_GRACE_MINUTES + 1))
         save_rule(rule_data(self.service, self.date, '100'), self.admin, rule.pk)
         self.assertEqual(self.edit([(self.service, 2, '')]).status_code, 302)
         invoice.refresh_from_db()

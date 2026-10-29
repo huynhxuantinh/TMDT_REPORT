@@ -191,6 +191,12 @@ VNPAY_HASH_SECRET = os.getenv('VNPAY_HASH_SECRET', '').strip()
 VNPAY_PUBLIC_BASE_URL = os.getenv('VNPAY_PUBLIC_BASE_URL', '').strip().rstrip('/')
 VNPAY_PAYMENT_URL = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html'
 VNPAY_TIMEOUT_MINUTES = 15
+# VNPAY can deliver a successful IPN after the local payment window closed
+# (tunnel restarted, slow network, patient paid right at the deadline). While
+# this window is open no new charge is allowed; afterwards the attempt becomes
+# 'timeout' — "outcome unknown" — never 'expired', because only VNPAY may
+# declare an expiry (response code 11).
+VNPAY_IPN_GRACE_MINUTES = int(os.getenv('VNPAY_IPN_GRACE_MINUTES', '45'))
 CSRF_TRUSTED_ORIGINS = []
 if VNPAY_PUBLIC_BASE_URL:
     try:

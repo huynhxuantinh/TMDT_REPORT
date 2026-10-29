@@ -55,12 +55,16 @@
                             <span class="status-badge" data-tone="{{ lich.hoa_don.trang_thai|tone }}">{{ lich.hoa_don.get_trang_thai_display }}</span>
                         {% endif %}
                         {% if lich.payment_pending %}<span class="status-badge" data-tone="pending">Đang xử lý</span>{% endif %}
-                        {% if lich.hoa_don.can_doi_soat %}<span class="status-badge" data-tone="danger">Cần đối soát</span>{% endif %}
+                        {% if lich.payment_refund %}
+                            <span class="status-badge" data-tone="danger">Thu trùng — cần hoàn tiền</span>
+                        {% elif lich.hoa_don.can_doi_soat %}
+                            <span class="status-badge" data-tone="danger">Cần đối soát</span>
+                        {% endif %}
                     </div>
                     <p class="muted">Hóa đơn #{{ lich.hoa_don.pk }} · Tổng {{ lich.hoa_don.tong_truoc_bhyt|vnd }} · BHYT {{ lich.hoa_don.bhyt_ho_tro|vnd }}</p>
                     <p class="money">Thực trả: <strong>{{ lich.hoa_don.so_tien|vnd }}</strong></p>
                     {% if lich.payment_failed and lich.hoa_don.trang_thai == 'unpaid' %}
-                        <p class="muted">Lần trước hủy / thất bại / hết hạn</p>
+                        <p class="muted">Lần trước hủy / thất bại / quá hạn chờ IPN</p>
                     {% endif %}
                     {% for attempt in lich.hoa_don.giao_dichs.all %}{% if forloop.first %}
                         <p class="muted">Giao dịch: {{ attempt.get_phuong_thuc_display }} · {{ attempt.get_trang_thai_display }}</p>

@@ -29,7 +29,9 @@
                 {% endif %}
             {% endwith %}
             <span class="layer-label">Đối soát</span>
-            {% if invoice.can_doi_soat %}
+            {% if refund_required %}
+                <span class="status-badge" data-tone="danger">Thu trùng — cần hoàn tiền</span>
+            {% elif invoice.can_doi_soat %}
                 <span class="status-badge" data-tone="danger">Cần đối soát</span>
             {% else %}
                 <span class="status-badge" data-tone="paid">Không có tranh chấp</span>
@@ -56,6 +58,17 @@
 </section>
 
 {% if monitor %}<p class="muted">Giám sát toàn hệ thống · chỉ xem.</p>{% endif %}
+{% if refund_required %}
+<p class="notice" role="alert">
+    <strong>Thu trùng — cần hoàn tiền.</strong>
+    Một giao dịch VNPAY thành công đến sau khi hóa đơn đã thanh toán (tham chiếu
+    <code>{{ refund_attempt.ma_tham_chieu }}</code>{% if refund_attempt.ma_giao_dich_vnpay %}, mã giao dịch VNPAY
+    <code>{{ refund_attempt.ma_giao_dich_vnpay }}</code>{% endif %}{% if refund_attempt.vnp_pay_date %}, lúc
+    {{ refund_attempt.vnp_pay_date }}{% endif %}).
+    Bệnh nhân đã trả hai lần: không thu thêm, không mở khóa hóa đơn, và cần hoàn lại
+    {{ refund_attempt.so_tien|vnd }} cho bệnh nhân.
+</p>
+{% endif %}
 {% if completion_error %}<p class="notice">{{ completion_error }}</p>{% endif %}
 {% if config_error %}<p class="notice">{{ config_error }}</p>{% endif %}
 {% if invoice_error %}<p class="notice">{{ invoice_error }}</p>{% endif %}
@@ -116,9 +129,11 @@
         <button type="submit">Ket thuc doi soat, mo khoa hoa don</button>
     </form>
     {% endif %}
-    {% if invoice.can_doi_soat %}<p class="notice">Có kết quả VNPAY mâu thuẫn. Đã khóa lần thu mới; cần đối soát với VNPAY trước khi xử lý tiếp.</p>{% endif %}
-    {% if pending %}<p class="notice">Đang chờ xác nhận thanh toán. Vui lòng tải lại trạng thái sau ít phút.{% if show_technical %} Giao dịch quá hạn tự chuyển sang hết hạn; có thể chạy <code>manage.py expire_vnpay_payments</code>.{% endif %}</p>{% endif %}
-    {% if overdue_pending %}<p class="notice">Giao dịch VNPAY đã quá hạn. Khi thực hiện thao tác tiếp theo, hệ thống sẽ chuyển giao dịch này sang hết hạn và ghi log.</p>{% endif %}
+    {% if refund_required %}
+        <p class="notice">Đã khóa mọi lần thu mới vì có khoản thu trùng. Không thực hiện thêm giao dịch; chuyển hồ sơ cho kế toán hoàn tiền.</p>
+    {% elif invoice.can_doi_soat %}<p class="notice">Có kết quả VNPAY mâu thuẫn. Đã khóa lần thu mới; cần đối soát với VNPAY trước khi xử lý tiếp.</p>{% endif %}
+    {% if pending %}<p class="notice">Đang chờ xác nhận thanh toán. Vui lòng tải lại trạng thái sau ít phút.{% if show_technical %} Hệ thống vẫn khóa thu tiền trong thời gian chờ IPN; hết thời gian chờ, giao dịch chuyển sang “quá hạn chờ IPN” (không phải VNPAY báo hết hạn) và có thể chạy <code>manage.py expire_vnpay_payments</code>.{% endif %}</p>{% endif %}
+    {% if overdue_pending %}<p class="notice">Đã hết thời gian chờ IPN nhưng giao dịch chưa được đóng. Thao tác tiếp theo sẽ chuyển giao dịch sang “quá hạn chờ IPN”; nếu chưa có kết quả từ VNPAY, quầy có thể thu lại.</p>{% endif %}
     {% if can_start %}
         <p>Thực hiện tại quầy khi bệnh nhân có mặt. Số tiền được lấy từ hóa đơn đã lưu.</p>
         <form method="post" action="{% url 'payment_start' invoice.pk %}">{% csrf_token %}
