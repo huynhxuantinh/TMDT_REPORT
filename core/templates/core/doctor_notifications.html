@@ -199,8 +199,8 @@
                         </div>
                         <div class="item-content">{{ tb.noi_dung }}</div>
                         <div class="actions">
-                            {% if tb.lien_ket %}
-                                <a class="btn primary" href="{{ tb.lien_ket }}">Xem chi ti&#7871;t</a>
+                            {% if tb.safe_link %}
+                                <a class="btn primary" href="{{ tb.safe_link }}">Xem chi ti&#7871;t</a>
                             {% endif %}
                             {% if not tb.da_doc %}
                                 <form method="post">

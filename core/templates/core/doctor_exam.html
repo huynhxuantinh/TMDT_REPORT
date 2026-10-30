@@ -182,8 +182,17 @@
                 </div>
             {% endif %}
 
+            {% if lich.trang_thai == 'cho' %}
+            <form method="post" action="{% url 'start_exam' lich.pk %}">
+                {% csrf_token %}
+                {% include 'core/exam_time_exception.html' %}
+                <p>Chọn bắt đầu khám trước khi nhập và hoàn tất phiếu.</p>
+                <button class="btn primary" type="submit">Bắt đầu khám</button>
+            </form>
+            {% elif lich.trang_thai == 'dang' %}
             <form method="post" enctype="multipart/form-data">
                 {% csrf_token %}
+                {% include 'core/exam_time_exception.html' %}
 
                 <div class="field">
                     <label>Tri&#7879;u ch&#7913;ng</label>
@@ -202,7 +211,8 @@
 
                 <div class="field">
                     <label>&#7842;nh &#273;&#237;nh k&#232;m (c&#243; th&#7875; ch&#7885;n nhi&#7873;u &#7843;nh)</label>
-                    <input id="exam-images-input" type="file" name="images" accept="image/*" multiple>
+                    <input id="exam-images-input" type="file" name="images" accept="image/jpeg,image/png,image/webp" multiple>
+                    <p>Tối đa 10 ảnh/phiếu, 5 MB/ảnh, 20 MB/lần tải; mỗi chiều tối đa 4096 px, không quá 16 triệu pixel.</p>
                     <div id="exam-images-preview" class="preview-grid"></div>
                 </div>
 
@@ -213,6 +223,7 @@
                     <a class="btn ghost" href="{% url 'bac_si_home' %}">Quay l&#7841;i</a>
                 </div>
             </form>
+            {% endif %}
         </div>
     </div>
 

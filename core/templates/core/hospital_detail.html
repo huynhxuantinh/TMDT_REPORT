@@ -735,6 +735,7 @@
     <script
         src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
     ></script>
+    {{ map_coordinates|json_script:"hospital-coordinates" }}
     <script>
         const map = L.map("map").setView([10.77, 106.7], 13);
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -744,8 +745,9 @@
         }).addTo(map);
 
         const hospitalName = "{{ bv.ten|escapejs }}";
-        const destLat = Number({{ map_lat|default:"null" }});
-        const destLon = Number({{ map_lon|default:"null" }});
+        const destination = JSON.parse(document.getElementById('hospital-coordinates').textContent);
+        const destLat = destination.lat;
+        const destLon = destination.lon;
 
         let routeLayer = null;
         let userMarker = null;
@@ -769,7 +771,7 @@
             }
         }
 
-        if (Number.isFinite(destLat) && Number.isFinite(destLon)) {
+        if (isValidLatLon(destLat, destLon)) {
             const marker = L.marker([destLat, destLon]).addTo(map);
             const popup = document.createElement('span');
             popup.textContent = hospitalName;
@@ -962,7 +964,7 @@
         map.addControl(new DetailLocateControl());
 
         async function drawRouteToHospital() {
-            if (!Number.isFinite(destLat) || !Number.isFinite(destLon)) {
+            if (!isValidLatLon(destLat, destLon)) {
                 alert("B\u1ec7nh vi\u1ec7n ch\u01b0a c\u00f3 t\u1ecda \u0111\u1ed9 h\u1ee3p l\u1ec7.");
                 return;
             }

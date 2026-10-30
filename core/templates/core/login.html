@@ -156,6 +156,7 @@
 
         <form method="post">
             {% csrf_token %}
+            <input type="hidden" name="next" value="{{ next }}">
 
             <div class="field">
                 <label>T&#234;n ng&#432;&#7901;i d&#249;ng</label>

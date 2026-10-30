@@ -15,6 +15,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 from django.db import transaction
 from .private_media import private_exam_storage
+from .exam_uploads import validate_exam_image, MAX_IMAGE_COUNT
+from django.urls import reverse
 
 phone_validator = RegexValidator(
     regex=r"^\d{9,15}$",
@@ -718,6 +720,10 @@ class LichKham(models.Model):
     ngay_cap_nhat = models.DateTimeField(auto_now=True)
 
     class Meta:
+        permissions = [
+            ('kham_som', 'Cho phép khám trước thời điểm hẹn'),
+            ('kham_hoi_to', 'Cho phép ghi nhận khám của ngày trước'),
+        ]
         indexes = [
             models.Index(fields=['bac_si', 'ngay_kham', 'trang_thai']),
             models.Index(fields=['benh_nhan', 'ngay_kham']),
@@ -740,10 +746,15 @@ class LichKham(models.Model):
 
     def clean(self):
         super().clean()
-        if self.ngay_kham and self.ngay_kham < timezone.localdate():
-            raise ValidationError({"ngay_kham": "Không thể đặt lịch ở ngày quá khứ."})
+        previous = type(self).objects.filter(pk=self.pk).first() if self.pk else None
+        changed_slot = previous is None or (previous.ngay_kham, previous.gio_kham) != (self.ngay_kham, self.gio_kham)
+        if changed_slot and self.ngay_kham and self.gio_kham:
+            scheduled = timezone.make_aware(datetime.datetime.combine(self.ngay_kham, self.gio_kham),
+                                            timezone.get_current_timezone())
+            if scheduled <= timezone.now():
+                raise ValidationError({'gio_kham': 'Không thể đặt lịch vào ngày/giờ đã qua.'})
 
-        if self.gio_kham and self.gio_kham.minute % 30 != 0:
+        if self.gio_kham and (self.gio_kham.minute % 30 != 0 or self.gio_kham.second or self.gio_kham.microsecond):
             raise ValidationError({"gio_kham": "Giờ khám chỉ nhận các mốc 30 phút (00 hoặc 30)."})
 
         if self.benh_nhan_id and self.ngay_kham:
@@ -892,7 +903,7 @@ class PhieuKhamHinhAnh(models.Model):
     hinh_anh = models.ImageField(
         upload_to=phieu_kham_image_upload_to,
         storage=private_exam_storage,
-        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"])],
+        validators=[FileExtensionValidator(allowed_extensions=["jpg", "jpeg", "png", "webp"]), validate_exam_image],
     )
     mo_ta = models.CharField(max_length=255, blank=True, default='')
     thu_tu = models.PositiveIntegerField(default=0)
@@ -908,6 +919,16 @@ class PhieuKhamHinhAnh(models.Model):
 
     def __str__(self):
         return f"Phiếu {self.phieu_kham_id} - ảnh #{self.pk}"
+
+    def save(self, *args, **kwargs):
+        # Covers the single-image generic CRUD path as well as concurrent uploads.
+        with transaction.atomic():
+            PhieuKham.objects.select_for_update().get(pk=self.phieu_kham_id)
+            if type(self).objects.filter(phieu_kham_id=self.phieu_kham_id).exclude(pk=self.pk).count() >= MAX_IMAGE_COUNT:
+                raise ValidationError('Mỗi phiếu khám tối đa 10 ảnh.')
+            if not self.hinh_anh._committed:
+                validate_exam_image(self.hinh_anh)
+            return super().save(*args, **kwargs)
 
 
 # ========================= 
@@ -1238,7 +1259,7 @@ def tao_thong_bao_lich_kham(sender, instance, created, **kwargs):
             loai='lich_kham',
             tieu_de='Lịch khám mới',
             noi_dung=f"Bệnh nhân {instance.benh_nhan.ho_ten} đã đặt lịch khám vào {instance.ngay_kham} lúc {instance.gio_kham}",
-            lien_ket=f"/lich-kham/{instance.pk}/"
+            lien_ket=reverse('doctor_exam', args=[instance.pk])
         )
 
 

@@ -403,6 +403,8 @@ IPN: `/thanh-toan/vnpay/ipn/`. ReturnURL: `/thanh-toan/vnpay/return/`. Chỉ IPN
 
 **Bảo vệ bệnh án và audit (P1):** ảnh khám dùng `private_media/` và endpoint kiểm tra quyền; nhật ký chỉ xem trong CRUD. Xem [báo cáo P1 và bước cập nhật](docs/P1_BAO_MAT_THANH_TOAN.md), đặc biệt lệnh chuyển ảnh cũ trước khi triển khai production.
 
+**Rà soát 08–16:** giới hạn ảnh khám, kiểm tra giờ và quyền ngoại lệ khám, chống đặt lịch đồng thời, POST/CSRF, lưu lịch làm việc atomic, quay lại đặt lịch sau đăng nhập và sửa bản đồ/link. Xem [chính sách, migration 0031 và kết quả kiểm thử](docs/RA_SOAT_08_16.md).
+
 **TASK 06 — Thu ngân và tiền mặt:** Admin tạo/phân công thu ngân tại `/quan-tri/thu-ngan/`; thu ngân dùng `/thanh-toan/` trong phạm vi một bệnh viện. Hỗ trợ thu đủ bằng tiền mặt, kể cả số phải trả 1–4.999đ, dùng chung khóa chống thu trùng với VNPAY. Admin giám sát toàn hệ thống tại `/quan-tri/thu-ngan/hoa-don/`. Xem [hướng dẫn và báo cáo TASK 06](docs/TASK06_THU_NGAN_TIEN_MAT.md).
 
 ## Ghi chú kỹ thuật

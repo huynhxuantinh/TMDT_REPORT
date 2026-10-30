@@ -578,8 +578,13 @@
             return detailUrlBase.replace("/0/", `/${numericId}/`);
         }
 
+        const resultBounds = [];
         mapData.forEach(item => {
+            if (typeof item.lat !== 'number' || typeof item.lon !== 'number'
+                || !Number.isFinite(item.lat) || !Number.isFinite(item.lon)
+                || Math.abs(item.lat) > 90 || Math.abs(item.lon) > 180) return;
             const marker = L.marker([item.lat, item.lon]).addTo(map);
+            resultBounds.push([item.lat, item.lon]);
             const openText = item.open ? "&#272;ang m&#7903;" : "&#272;&#243;ng c&#7917;a";
             const emergencyText = item.emergency ? "C&#7845;p c&#7913;u 24/7" : "Kh&#244;ng c&#7845;p c&#7913;u 24/7";
             const distanceText = typeof item.distance_km === "number" ? `${item.distance_km} km` : "";
@@ -594,6 +599,9 @@
             `;
             marker.bindPopup(popupHtml);
         });
+        if (resultBounds.length) {
+            map.fitBounds(resultBounds, {padding: [30, 30], maxZoom: 15});
+        }
 
         function setLocateButtonActive(active) {
             if (!locateControlButton) {
@@ -720,7 +728,7 @@
             const uLat = parseFloat(userLat);
             const uLon = parseFloat(userLon);
             if (isValidLatLon(uLat, uLon)) {
-                setUserLocation(uLat, uLon, true);
+                setUserLocation(uLat, uLon, resultBounds.length === 0);
             }
         }
 

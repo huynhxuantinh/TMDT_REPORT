@@ -82,18 +82,22 @@ class DoctorFlowTests(TestCase):
         self.appointment = LichKham.objects.create(
             benh_nhan=self.patient,
             bac_si=self.doctor,
-            ngay_kham=timezone.localdate() + datetime.timedelta(days=1),
+            ngay_kham=timezone.localdate(),
             gio_kham=datetime.time(9, 0),
             trang_thai="cho",
             ghi_chu="",
         )
+        from unittest.mock import patch
+        clock = patch('django.utils.timezone.now', return_value=timezone.localtime().replace(hour=10, minute=0, second=0))
+        clock.start()
+        self.addCleanup(clock.stop)
 
     def test_start_exam_requires_post(self):
         self.client.login(username="doctor1", password="pass12345")
 
         response = self.client.get(reverse("start_exam", args=[self.appointment.id]))
 
-        self.assertRedirects(response, reverse("bac_si_home"))
+        self.assertEqual(response.status_code, 405)
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.trang_thai, "cho")
 
@@ -102,7 +106,7 @@ class DoctorFlowTests(TestCase):
 
         response = self.client.post(reverse("start_exam", args=[self.appointment.id]))
 
-        self.assertRedirects(response, reverse("bac_si_home"))
+        self.assertRedirects(response, reverse('doctor_exam', args=[self.appointment.pk]))
         self.appointment.refresh_from_db()
         self.assertEqual(self.appointment.trang_thai, "dang")
 
@@ -126,7 +130,7 @@ class DoctorFlowTests(TestCase):
         from core.models import DanhMucDichVu
         from core.exam_services.services import revision
         self.client.login(username="doctor1", password="pass12345")
-        self.client.get(reverse('doctor_exam', args=[self.appointment.pk]))
+        self.client.post(reverse('start_exam', args=[self.appointment.pk]))
         service = DanhMucDichVu.objects.create(ma_dich_vu='FLOW_FEE', ten='Khám', nhom='Khám bệnh', don_gia=100000)
         payload = {
             "trieu_chung": "Dau bung",

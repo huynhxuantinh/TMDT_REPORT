@@ -252,6 +252,7 @@
                         {% if lich.trang_thai == "cho" %}
                             <form method="post" action="{% url 'start_exam' lich.id %}" style="margin:0;">
                                 {% csrf_token %}
+                                {% include 'core/exam_time_exception.html' %}
                                 <button class="btn ghost" type="submit">B&#7855;t &#273;&#7847;u kh&#225;m</button>
                             </form>
                         {% endif %}

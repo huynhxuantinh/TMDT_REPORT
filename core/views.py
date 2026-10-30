@@ -58,6 +58,11 @@ from .forms import (
 )
 from .billing.services import billing_context as exam_billing_context
 from .payments.access import can_admin
+from .appointments import book_appointment, transition_exam
+from .exam_uploads import validate_exam_images
+from .geo import point_to_latlon
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.urls import reverse, resolve, Resolver404
 
 
 # ==========================
@@ -254,30 +259,6 @@ def home(request):
             bvs = bvs.filter(distance_m__lte=radius_km * 1000)
         bvs = bvs.order_by("distance_m")
 
-    def point_to_latlon(point):
-        # GIS: convert Point to lat/lon (handle Web Mercator or WGS84)
-        if not point:
-            return None, None
-        x = point.x
-        y = point.y
-        is_web_mercator = point.srid == 3857 or abs(x) > 180 or abs(y) > 90
-        if is_web_mercator:
-            max_merc = 20037508.34
-            world_width = max_merc * 2
-            if x > max_merc or x < -max_merc:
-                x = ((x + max_merc) % world_width) - max_merc
-            if y > max_merc:
-                y = max_merc
-            elif y < -max_merc:
-                y = -max_merc
-            lon = x * 180.0 / 20037508.34
-            lat = y * 180.0 / 20037508.34
-            lat = 180.0 / math.pi * (2 * math.atan(math.exp(lat * math.pi / 180.0)) - math.pi / 2)
-            if abs(lat) <= 90 and abs(lon) <= 180:
-                return lat, lon
-            return None, None
-        return y, x
-
     thu = (now.weekday() + 1) % 7
     computed_bvs = []
     for bv in bvs:
@@ -399,29 +380,6 @@ def gioi_thieu(request):
     content, _ = NoiDungGioiThieu.objects.get_or_create(thu_tu=1)
     bvs = BenhVien.objects.only("id", "ten", "phuong", "vi_tri").order_by("ten")
 
-    def point_to_latlon(point):
-        if not point:
-            return None, None
-        x = point.x
-        y = point.y
-        is_web_mercator = point.srid == 3857 or abs(x) > 180 or abs(y) > 90
-        if is_web_mercator:
-            max_merc = 20037508.34
-            world_width = max_merc * 2
-            if x > max_merc or x < -max_merc:
-                x = ((x + max_merc) % world_width) - max_merc
-            if y > max_merc:
-                y = max_merc
-            elif y < -max_merc:
-                y = -max_merc
-            lon = x * 180.0 / 20037508.34
-            lat = y * 180.0 / 20037508.34
-            lat = 180.0 / math.pi * (2 * math.atan(math.exp(lat * math.pi / 180.0)) - math.pi / 2)
-            if abs(lat) <= 90 and abs(lon) <= 180:
-                return lat, lon
-            return None, None
-        return y, x
-
     map_data = []
     for bv in bvs:
         lat, lon = point_to_latlon(bv.vi_tri) if bv.vi_tri else (None, None)
@@ -462,33 +420,7 @@ def hospital_detail(request, id):
     primary_image = next((img for img in hospital_images if img.la_anh_dai_dien), None)
     if not primary_image and hospital_images:
         primary_image = hospital_images[0]
-    map_lat = None
-    map_lon = None
-    if bv.vi_tri:
-        x = bv.vi_tri.x
-        y = bv.vi_tri.y
-
-        is_web_mercator = bv.vi_tri.srid == 3857 or abs(x) > 180 or abs(y) > 90
-        if is_web_mercator:
-            max_merc = 20037508.34
-            world_width = max_merc * 2
-            if x > max_merc or x < -max_merc:
-                x = ((x + max_merc) % world_width) - max_merc
-            if y > max_merc:
-                y = max_merc
-            elif y < -max_merc:
-                y = -max_merc
-            lon = x * 180.0 / 20037508.34
-            lat = y * 180.0 / 20037508.34
-            lat = 180.0 / math.pi * (2 * math.atan(math.exp(lat * math.pi / 180.0)) - math.pi / 2)
-            map_lat, map_lon = lat, lon
-        else:
-            map_lat, map_lon = y, x
-
-        if map_lat is not None and map_lon is not None:
-            if abs(map_lat) > 90 or abs(map_lon) > 180:
-                map_lat = None
-                map_lon = None
+    map_lat, map_lon = point_to_latlon(bv.vi_tri)
 
     return render(request, "core/hospital_detail.html", {
         "bv": bv,
@@ -499,6 +431,7 @@ def hospital_detail(request, id):
         "primary_image": primary_image,
         "map_lat": map_lat,
         "map_lon": map_lon,
+        "map_coordinates": {"lat": map_lat, "lon": map_lon},
     })
 
 
@@ -519,6 +452,8 @@ def dat_lich(request, bv_id):
 
     khoas = benh_vien.khoas.all().order_by("ten")
     khoa_id = (request.POST.get("khoa") or request.GET.get("khoa") or "").strip()
+    if khoa_id and (not khoa_id.isascii() or not khoa_id.isdigit()):
+        khoa_id = ''
 
     selected_khoa = None
     if khoa_id:
@@ -560,8 +495,7 @@ def dat_lich(request, bv_id):
             lich.benh_nhan = benh_nhan
 
             try:
-                lich.full_clean()
-                lich.save()
+                book_appointment(lich)
             except ValidationError as exc:
                 for field, errors in exc.message_dict.items():
                     if field in form.fields:
@@ -581,7 +515,7 @@ def dat_lich(request, bv_id):
                     "khoa_id": khoa_id,
                 })
             except IntegrityError:
-                form.add_error("ngay_kham", "Bạn đã có lịch khám trong ngày này.")
+                form.add_error(None, "Lịch vừa được người khác đặt hoặc bạn đã có lịch trùng. Vui lòng chọn lại ngày/giờ.")
                 messages.error(request, "Không thể đặt lịch. Vui lòng kiểm tra lại thông tin.")
                 return render(request, "core/appointment.html", {
                     "form": form,
@@ -607,7 +541,8 @@ def dat_lich(request, bv_id):
 
         messages.error(request, "Không thể đặt lịch. Vui lòng kiểm tra lại thông tin.")
     else:
-        form = DatLichForm()
+        form = DatLichForm(initial={key: request.GET[key] for key in
+                                   ('bac_si', 'ngay_kham', 'gio_kham') if key in request.GET})
         form.fields["bac_si"].queryset = bac_sis
 
     return render(request, "core/appointment.html", {
@@ -669,9 +604,9 @@ def upcoming_appointments(request):
 # HỦY LỊCH KHÁM (BỆNH NHÂN)
 # ==========================
 @login_required
+@require_POST
+@transaction.atomic
 def cancel_appointment(request, lich_id):
-    if request.method != "POST":
-        return redirect("upcoming_appointments")
 
     benh_nhan = _patient_for_user(request.user)
 
@@ -680,7 +615,7 @@ def cancel_appointment(request, lich_id):
             "msg": "Bạn chưa có hồ sơ bệnh nhân"
         })
 
-    lich = get_object_or_404(LichKham, id=lich_id, benh_nhan=benh_nhan)
+    lich = get_object_or_404(LichKham.objects.select_for_update(), id=lich_id, benh_nhan=benh_nhan)
 
     if lich.trang_thai == "huy":
         messages.error(request, "Lịch khám đã bị hủy trước đó.")
@@ -871,20 +806,14 @@ def doctor_exam(request, lich_id):
         return redirect("bac_si_home")
 
     if hasattr(lich, "phieu_kham"):
-        if lich.trang_thai != "xong":
-            lich.trang_thai = "xong"
-            lich.save(update_fields=["trang_thai", "ngay_cap_nhat"])
         messages.info(request, "Lịch khám này đã có phiếu khám.")
-        return redirect("bac_si_home")
-
-    if request.method != "POST" and lich.trang_thai == "cho":
-        lich.trang_thai = "dang"
-        lich.save(update_fields=["trang_thai", "ngay_cap_nhat"])
+        return redirect('phieu_kham_detail', phieu_id=lich.phieu_kham.pk)
 
     clinical_values = {name + "_value": request.POST.get(name, "") for name in ("trieu_chung", "chan_doan", "huong_dieu_tri")}
 
     def render_exam():
-        return render(request, "core/doctor_exam.html", {"lich": lich, **clinical_values})
+        return render(request, "core/doctor_exam.html", {"lich": lich, **clinical_values,
+            'exception_reason': request.POST.get('exception_reason', '')})
 
     if request.method == "POST":
 
@@ -901,6 +830,8 @@ def doctor_exam(request, lich_id):
                 lich = get_object_or_404(LichKham.objects.select_for_update(), id=lich_id, bac_si=bac_si)
                 if lich.trang_thai == "huy" or PhieuKham.objects.filter(lich_kham=lich).exists():
                     raise ValidationError("Lịch khám đã hủy hoặc đã có phiếu khám. Vui lòng tải lại trang.")
+                validate_exam_images(uploaded_images)
+                transition_exam(lich, request.user, 'xong', request.POST.get('exception_reason', ''))
                 phieu = PhieuKham.objects.create(
                     benh_nhan=lich.benh_nhan,
                     lich_kham=lich,
@@ -908,19 +839,10 @@ def doctor_exam(request, lich_id):
                     chan_doan=chan_doan,
                     huong_dieu_tri=huong_dieu_tri
                 )
-                for idx, image in enumerate(uploaded_images):
-                    hinh_anh = PhieuKhamHinhAnh(
-                        phieu_kham=phieu,
-                        hinh_anh=image,
-                        thu_tu=idx,
-                    )
-                    hinh_anh.full_clean()
-                    hinh_anh.save()
-
-                lich.trang_thai = "xong"
-                lich.save()
-        except ValidationError:
-            messages.error(request, "Ảnh tải lên không hợp lệ. Vui lòng dùng JPG, PNG hoặc WEBP.")
+                _sync_exam_images(phieu, uploaded_images)
+        except ValidationError as exc:
+            lich.refresh_from_db()
+            messages.error(request, ' '.join(exc.messages))
             return render_exam()
 
         messages.success(request, "Đã hoàn thành khám. Quản lý chi nhánh sẽ ghi nhận dịch vụ và tính chi phí.")
@@ -985,13 +907,16 @@ def register(request):
 # ĐĂNG NHẬP
 # ==========================
 def user_login(request):
+    next_url = request.POST.get('next', request.GET.get('next', '')).strip()
+    if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+        next_url = ''
     if request.method == "POST":
         username = request.POST.get("username", "").strip()
         password = request.POST.get("password", "")
 
         if not username:
             messages.error(request, "Vui lòng nhập tên người dùng.")
-            return render(request, "core/login.html")
+            return render(request, "core/login.html", {'next': next_url})
 
         user = authenticate(
             request,
@@ -1001,6 +926,9 @@ def user_login(request):
 
         if user:
             login(request, user)
+
+            if next_url:
+                return redirect(next_url)
 
             if hasattr(user, "quan_ly_chi_nhanh"):
                 return redirect("payment_list")
@@ -1016,7 +944,7 @@ def user_login(request):
 
         messages.error(request, "Sai tài khoản hoặc mật khẩu")
 
-    return render(request, "core/login.html")
+    return render(request, "core/login.html", {'next': next_url})
 
 
 # ==========================
@@ -1456,8 +1384,6 @@ def _build_filter_meta(model, list_filter, params):
 
 ALLOWED_HOSPITAL_IMAGE_EXTS = {"jpg", "jpeg", "png", "webp"}
 MAX_HOSPITAL_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
-ALLOWED_EXAM_IMAGE_EXTS = {"jpg", "jpeg", "png", "webp"}
-MAX_EXAM_IMAGE_SIZE_BYTES = 5 * 1024 * 1024
 
 
 def _parse_int_set(values):
@@ -1487,21 +1413,12 @@ def _validate_hospital_images(uploaded_images):
     return errors
 
 
-def _validate_exam_images(uploaded_images):
-    errors = []
-    for uploaded in uploaded_images:
-        name = uploaded.name or "tep_khong_ten"
-        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
-        if ext not in ALLOWED_EXAM_IMAGE_EXTS:
-            errors.append(f"Ảnh '{name}' không đúng định dạng (jpg, jpeg, png, webp).")
-            continue
-        if uploaded.size and uploaded.size > MAX_EXAM_IMAGE_SIZE_BYTES:
-            errors.append(f"Ảnh '{name}' vượt quá 5MB.")
-            continue
-        content_type = (getattr(uploaded, "content_type", "") or "").lower()
-        if content_type and not content_type.startswith("image/"):
-            errors.append(f"Tệp '{name}' không phải ảnh hợp lệ.")
-    return errors
+def _validate_exam_images(uploaded_images, *, existing_count=0):
+    try:
+        validate_exam_images(uploaded_images, existing_count=existing_count)
+    except ValidationError as exc:
+        return exc.messages
+    return []
 
 
 def _sync_hospital_images(hospital, uploaded_images, delete_ids=None, cover_image_id=None):
@@ -1549,8 +1466,12 @@ def _sync_hospital_images(hospital, uploaded_images, delete_ids=None, cover_imag
     BenhVienHinhAnh.objects.filter(benh_vien=hospital, id=target_cover_id).update(la_anh_dai_dien=True)
 
 
+@transaction.atomic
 def _sync_exam_images(phieu, uploaded_images, delete_ids=None):
     delete_ids = delete_ids or set()
+    PhieuKham.objects.select_for_update().get(pk=phieu.pk)
+    kept = phieu.hinh_anhs.exclude(pk__in=delete_ids).count()
+    validate_exam_images(uploaded_images, existing_count=kept)
 
     if delete_ids:
         PhieuKhamHinhAnh.objects.filter(phieu_kham=phieu, id__in=delete_ids).delete()
@@ -1757,17 +1678,20 @@ def custom_admin_model_create(request, model_key):
             form.add_error(None, err)
 
         if form.is_valid():
-            with transaction.atomic():
-                if is_exam_record:
-                    form.instance._audit_user = request.user
-                obj = form.save()
-                if is_hospital:
-                    _save_hospital_schedule_rows(obj, schedule_rows)
-                    _sync_hospital_images(obj, uploaded_images)
-                elif is_exam_record:
-                    _sync_exam_images(obj, exam_uploaded_images)
-            messages.success(request, f"Đã tạo {config['title'].lower()}.")
-            return redirect("custom_admin_model_list", model_key=model_key)
+            try:
+                with transaction.atomic():
+                    if is_exam_record:
+                        form.instance._audit_user = request.user
+                    obj = form.save()
+                    if is_hospital:
+                        _save_hospital_schedule_rows(obj, schedule_rows)
+                        _sync_hospital_images(obj, uploaded_images)
+                    elif is_exam_record:
+                        _sync_exam_images(obj, exam_uploaded_images)
+                messages.success(request, f"Đã tạo {config['title'].lower()}.")
+                return redirect("custom_admin_model_list", model_key=model_key)
+            except ValidationError as exc:
+                form.add_error(None, exc)
 
     return render(request, "core/custom_admin_form.html", {
         "title": f"Tạo {config['title']}",
@@ -1843,29 +1767,32 @@ def custom_admin_model_edit(request, model_key, pk):
             form.add_error(None, err)
 
         if form.is_valid():
-            with transaction.atomic():
-                if is_exam_record:
-                    form.instance._audit_user = request.user
-                updated_obj = form.save()
-                if is_hospital:
-                    _save_hospital_schedule_rows(updated_obj, schedule_rows)
-                    _sync_hospital_images(
-                        updated_obj,
-                        uploaded_images,
-                        delete_ids=selected_delete_ids,
-                        cover_image_id=selected_cover_id if selected_cover_id else None,
-                    )
-                elif is_exam_record:
-                    _sync_exam_images(
-                        updated_obj,
-                        exam_uploaded_images,
-                        delete_ids=selected_delete_exam_ids,
-                    )
-            if isinstance(updated_obj, User) and request.user.pk == updated_obj.pk and form.cleaned_data.get("password"):
-                # Keep current admin session alive when changing own password.
-                update_session_auth_hash(request, updated_obj)
-            messages.success(request, f"Đã cập nhật {config['title'].lower()}.")
-            return redirect("custom_admin_model_list", model_key=model_key)
+            try:
+                with transaction.atomic():
+                    if is_exam_record:
+                        form.instance._audit_user = request.user
+                    updated_obj = form.save()
+                    if is_hospital:
+                        _save_hospital_schedule_rows(updated_obj, schedule_rows)
+                        _sync_hospital_images(
+                            updated_obj,
+                            uploaded_images,
+                            delete_ids=selected_delete_ids,
+                            cover_image_id=selected_cover_id if selected_cover_id else None,
+                        )
+                    elif is_exam_record:
+                        _sync_exam_images(
+                            updated_obj,
+                            exam_uploaded_images,
+                            delete_ids=selected_delete_exam_ids,
+                        )
+                if isinstance(updated_obj, User) and request.user.pk == updated_obj.pk and form.cleaned_data.get("password"):
+                    # Keep current admin session alive when changing own password.
+                    update_session_auth_hash(request, updated_obj)
+                messages.success(request, f"Đã cập nhật {config['title'].lower()}.")
+                return redirect("custom_admin_model_list", model_key=model_key)
+            except ValidationError as exc:
+                form.add_error(None, exc)
 
     return render(request, "core/custom_admin_form.html", {
         "title": f"Sửa {config['title']}",
@@ -2282,14 +2209,6 @@ def bac_si_home(request):
 
     base_qs = bac_si.lich_khams.all()
 
-    completed_appointment_ids = set(
-        PhieuKham.objects.filter(lich_kham__bac_si=bac_si).values_list("lich_kham_id", flat=True)
-    )
-    if completed_appointment_ids:
-        base_qs.filter(id__in=completed_appointment_ids).exclude(trang_thai="xong").update(
-            trang_thai="xong"
-        )
-
     lich_khams = base_qs
 
     today = timezone.localdate()
@@ -2384,35 +2303,22 @@ def bac_si_patient_detail(request, benh_nhan_id):
 # BẮT ĐẦU KHÁM (BÁC SĨ)
 # ==========================
 @login_required
+@require_POST
 def start_exam(request, lich_id):
-    if request.method != "POST":
-        return redirect("bac_si_home")
-
     try:
         bac_si = request.user.bac_si
     except BacSi.DoesNotExist:
         return redirect("home")
 
-    lich = get_object_or_404(
-        LichKham,
-        id=lich_id,
-        bac_si=bac_si
-    )
-
-    if lich.trang_thai == "huy":
-        messages.error(request, "Lịch đã hủy, không thể bắt đầu khám.")
-        return redirect("bac_si_home")
-
-    if lich.trang_thai == "xong":
-        messages.info(request, "Lịch đã hoàn thành.")
-        return redirect("bac_si_home")
-
-    if lich.trang_thai != "dang":
-        lich.trang_thai = "dang"
-        lich.save()
-        messages.success(request, "Đã chuyển trạng thái sang đang khám.")
-
-    return redirect("bac_si_home")
+    try:
+        with transaction.atomic():
+            lich = get_object_or_404(LichKham.objects.select_for_update(), pk=lich_id, bac_si=bac_si)
+            transition_exam(lich, request.user, 'dang', request.POST.get('exception_reason', ''))
+    except ValidationError as exc:
+        messages.error(request, ' '.join(exc.messages))
+        return redirect('doctor_exam', lich_id=lich_id)
+    messages.success(request, 'Đã chuyển trạng thái sang đang khám.')
+    return redirect('doctor_exam', lich_id=lich_id)
 
 
 # ==========================
@@ -2421,7 +2327,7 @@ def start_exam(request, lich_id):
 @login_required
 def bac_si_notifications(request):
     try:
-        request.user.bac_si
+        bac_si = request.user.bac_si
     except BacSi.DoesNotExist:
         return redirect("home")
 
@@ -2443,13 +2349,39 @@ def bac_si_notifications(request):
                 ).update(da_doc=True)
             return redirect("bac_si_notifications")
 
-    thong_baos = ThongBao.objects.filter(
+    thong_baos = list(ThongBao.objects.filter(
         nguoi_nhan=request.user
-    ).order_by("-thoi_gian")
+    ).order_by("-thoi_gian"))
+    for notification in thong_baos:
+        notification.safe_link = _doctor_notification_link(notification.lien_ket, bac_si)
 
     return render(request, "core/doctor_notifications.html", {
         "thong_baos": thong_baos,
     })
+
+
+def _doctor_notification_link(link, doctor):
+    # Old notifications used a non-existent /lich-kham/<id>/ route.
+    legacy = re.fullmatch(r'/lich-kham/(\d+)/', link or '')
+    if legacy:
+        link = reverse('doctor_exam', args=[int(legacy.group(1))])
+    if not link or not link.startswith('/') or link.startswith('//'):
+        return ''
+    try:
+        match = resolve(link)
+    except Resolver404:
+        return ''
+    if match.url_name == 'doctor_exam':
+        appointment = LichKham.objects.filter(pk=match.kwargs['lich_id'], bac_si=doctor).first()
+        if not appointment:
+            return ''
+        exam = PhieuKham.objects.filter(lich_kham=appointment).first()
+        if exam:
+            return reverse('phieu_kham_detail', args=[exam.pk])
+        return link if appointment.trang_thai in ('cho', 'dang') else ''
+    if match.url_name == 'phieu_kham_detail':
+        return link if PhieuKham.objects.filter(pk=match.kwargs['phieu_id'], lich_kham__bac_si=doctor).exists() else ''
+    return ''
  
 # ==========================
 # LỊCH LÀM VIỆC BÁC SĨ
@@ -2472,21 +2404,15 @@ def bac_si_schedule(request):
     ]
 
     if request.method == "POST":
+        schedule_updates = []
         for thu, _ in thu_labels:
             nghi = request.POST.get(f"nghi_{thu}") == "on"
             gio_bat_dau = request.POST.get(f"gio_bat_dau_{thu}", "").strip()
             gio_ket_thuc = request.POST.get(f"gio_ket_thuc_{thu}", "").strip()
 
             if nghi:
-                GioLamViecBacSi.objects.update_or_create(
-                    bac_si=bac_si,
-                    thu=thu,
-                    defaults={
-                        "nghi": True,
-                        "gio_bat_dau": "00:00",
-                        "gio_ket_thuc": "00:00",
-                    },
-                )
+                schedule_updates.append((thu, {'nghi': True, 'gio_bat_dau': datetime.time(0),
+                                               'gio_ket_thuc': datetime.time(0)}))
                 continue
 
             if not gio_bat_dau or not gio_ket_thuc:
@@ -2494,8 +2420,8 @@ def bac_si_schedule(request):
                 return redirect("bac_si_schedule")
 
             try:
-                start_time = datetime.time.fromisoformat(gio_bat_dau)
-                end_time = datetime.time.fromisoformat(gio_ket_thuc)
+                start_time = datetime.datetime.strptime(gio_bat_dau, '%H:%M').time()
+                end_time = datetime.datetime.strptime(gio_ket_thuc, '%H:%M').time()
             except ValueError:
                 messages.error(request, "Định dạng giờ không hợp lệ.")
                 return redirect("bac_si_schedule")
@@ -2504,15 +2430,12 @@ def bac_si_schedule(request):
                 messages.error(request, "Giờ bắt đầu phải nhỏ hơn giờ kết thúc.")
                 return redirect("bac_si_schedule")
 
-            GioLamViecBacSi.objects.update_or_create(
-                bac_si=bac_si,
-                thu=thu,
-                defaults={
-                    "nghi": False,
-                    "gio_bat_dau": start_time,
-                    "gio_ket_thuc": end_time,
-                },
-            )
+            schedule_updates.append((thu, {'nghi': False, 'gio_bat_dau': start_time, 'gio_ket_thuc': end_time}))
+
+        with transaction.atomic():
+            BacSi.objects.select_for_update().get(pk=bac_si.pk)
+            for thu, values in schedule_updates:
+                GioLamViecBacSi.objects.update_or_create(bac_si=bac_si, thu=thu, defaults=values)
 
         messages.success(request, "Đã cập nhật lịch làm việc.")
         return redirect("bac_si_schedule")
@@ -2575,31 +2498,17 @@ def bac_si_phieu_kham_edit(request, phieu_id):
             with transaction.atomic():
                 get_object_or_404(LichKham.objects.select_for_update(), pk=phieu.lich_kham_id, bac_si=bac_si)
                 phieu = get_object_or_404(PhieuKham.objects.select_for_update(), pk=phieu_id, lich_kham__bac_si=bac_si)
+                kept = phieu.hinh_anhs.exclude(pk__in=_parse_int_set(remove_image_ids)).count()
+                validate_exam_images(new_images, existing_count=kept)
                 phieu.trieu_chung = trieu_chung
                 phieu.chan_doan = chan_doan
                 phieu.huong_dieu_tri = huong_dieu_tri
                 phieu._audit_user = request.user
                 phieu.save()
 
-                if remove_image_ids:
-                    PhieuKhamHinhAnh.objects.filter(
-                        phieu_kham=phieu,
-                        id__in=remove_image_ids,
-                    ).delete()
-
-                next_order = phieu.hinh_anhs.aggregate(max_order=Max("thu_tu")).get("max_order")
-                next_order = (next_order + 1) if next_order is not None else 0
-                for image in new_images:
-                    hinh_anh = PhieuKhamHinhAnh(
-                        phieu_kham=phieu,
-                        hinh_anh=image,
-                        thu_tu=next_order,
-                    )
-                    hinh_anh.full_clean()
-                    hinh_anh.save()
-                    next_order += 1
-        except ValidationError:
-            messages.error(request, "Ảnh tải lên không hợp lệ. Vui lòng dùng JPG, PNG hoặc WEBP.")
+                _sync_exam_images(phieu, new_images, _parse_int_set(remove_image_ids))
+        except ValidationError as exc:
+            messages.error(request, 'Ảnh tải lên không hợp lệ: ' + ' '.join(exc.messages))
             return render_exam_edit()
 
         messages.success(request, "Đã cập nhật phiếu khám.")
