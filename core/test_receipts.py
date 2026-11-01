@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core import mail
 from django.core.exceptions import PermissionDenied
 from django.core.mail.backends.locmem import EmailBackend
@@ -172,6 +172,8 @@ class ReceiptPDFTests(CashierFixtures, TestCase):
     def test_admin_without_collect_permission_can_view_all_receipts(self):
         invoice = self.other_invoice()
         admin = User.objects.create_user('readonly_admin', is_staff=True)
+        admin.user_permissions.add(Permission.objects.get(
+            content_type__app_label='core', codename='quan_tri_he_thong'))
         self.client.force_login(admin)
         self.assertEqual(self.pdf(invoice).status_code, 200)
 

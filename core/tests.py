@@ -384,6 +384,18 @@ class AdminDashboardTests(TestCase):
         response = self.client.get(reverse("custom_admin_dashboard"))
         self.assertRedirects(response, reverse("home"))
 
+    def test_plain_staff_cannot_access_global_administration(self):
+        self.client.login(username="staff_demo", password="pass12345")
+        for route, args in [
+            ("custom_admin_dashboard", []),
+            ("custom_admin_hospitals", []),
+            ("custom_admin_model_list", ["benh-vien"]),
+            ("cashier_monitor", []),
+        ]:
+            with self.subTest(route=route):
+                response = self.client.get(reverse(route, args=args))
+                self.assertIn(response.status_code, (302, 403))
+
     def test_admin_can_open_custom_dashboard(self):
         self.client.login(username="admin_demo", password="pass12345")
         response = self.client.get(reverse("custom_admin_dashboard"))
@@ -448,6 +460,7 @@ class AdminDashboardTests(TestCase):
         self.assertTrue(created_user.check_password("Staff@123456"))
         self.assertTrue(created_user.is_staff)
         self.assertFalse(created_user.is_superuser)
+        self.assertTrue(created_user.has_perm("core.quan_tri_he_thong"))
 
     def test_superuser_cannot_edit_own_account_through_custom_directory(self):
         self.client.login(username="admin_demo", password="pass12345")

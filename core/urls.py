@@ -33,6 +33,7 @@ urlpatterns = [
     path('thanh-toan/', payment_views.payment_list, name='payment_list'),
     path('thanh-toan/lich-kham/<int:lich_id>/', payment_views.payment_detail, name='payment_detail'),
     path('thanh-toan/lich-kham/<int:lich_id>/dich-vu/', payment_views.services_save, name='payment_services_save'),
+    path('thanh-toan/hoa-don/<int:invoice_id>/bhyt/', payment_views.bhyt_apply, name='payment_bhyt_apply'),
     path('thanh-toan/lich-kham/<int:lich_id>/hoa-don/', payment_views.invoice_create, name='invoice_create'),
     path('thanh-toan/hoa-don/<int:invoice_id>/vnpay/', payment_views.payment_start, name='payment_start'),
     path('thanh-toan/vnpay/return/', payment_views.vnpay_return, name='vnpay_return'),

@@ -126,6 +126,16 @@
             font-weight: 600;
         }
 
+        .badges {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .badge.payment-paid { background: rgba(19, 128, 76, 0.12); color: #176b3a; }
+        .badge.payment-unpaid { background: rgba(187, 120, 20, 0.13); color: #87530d; }
+        .badge.payment-none { background: rgba(91, 107, 106, 0.12); color: var(--muted); }
+
         .section {
             margin-top: 10px;
             font-size: 14px;
@@ -163,7 +173,18 @@
                         <h3>{{ item.bac_si.ho_ten|default:"B&#225;c s&#297;" }}</h3>
                         <p class="meta"><strong>Ng&#224;y kh&#225;m:</strong> {{ item.ngay_kham|date:"d/m/Y" }}</p>
                         <p class="meta"><strong>B&#7879;nh vi&#7879;n:</strong> {{ item.benh_vien.ten|default:"&#8212;" }}</p>
-                        <span class="badge">&#272;&#227; kh&#225;m</span>
+                        <div class="badges">
+                            <span class="badge">&#272;&#227; kh&#225;m</span>
+                            {% if item.phieu_kham.hoa_don %}
+                                {% if item.phieu_kham.hoa_don.trang_thai == 'paid' %}
+                                    <span class="badge payment-paid">&#272;&#227; thanh to&#225;n</span>
+                                {% else %}
+                                    <span class="badge payment-unpaid">Ch&#432;a thanh to&#225;n</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="badge payment-none">Ch&#432;a c&#243; h&#243;a &#273;&#417;n</span>
+                            {% endif %}
+                        </div>
 
                         <div class="section">
                             <div><span class="label">Tri&#7879;u ch&#7913;ng:</span> {{ item.trieu_chung }}</div>

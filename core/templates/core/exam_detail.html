@@ -102,6 +102,20 @@
             margin: 0 0 10px;
         }
 
+        .payment-status {
+            display: inline-flex;
+            align-items: center;
+            padding: 7px 11px;
+            border-radius: 999px;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .payment-status.paid { color: #176b3a; background: rgba(19, 128, 76, 0.12); }
+        .payment-status.unpaid { color: #87530d; background: rgba(187, 120, 20, 0.13); }
+        .payment-status.review { color: #855015; background: #fff5e4; }
+        .payment-status.none { color: var(--muted); background: rgba(91, 107, 106, 0.12); }
+
         .exam-images {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -163,8 +177,27 @@
             <div>{{ phieu.huong_dieu_tri }}</div>
         </div>
 
+        {% if is_patient_view %}
         <div class="card">
-            {% if benh_nhan %}{% include 'core/exam_services/read_only.html' %}{% endif %}
+            <h2 class="section-title">Tr&#7841;ng th&#225;i thanh to&#225;n</h2>
+            {% if billing_invoice %}
+                {% if billing_invoice.can_doi_soat %}
+                    <span class="payment-status review">&#272;ang &#273;&#7889;i so&#225;t thanh to&#225;n</span>
+                {% elif billing_invoice.trang_thai == 'paid' %}
+                    <span class="payment-status paid">&#272;&#227; thanh to&#225;n</span>
+                    <p><a class="btn ghost" href="{% url 'receipt_view' billing_invoice.pk %}" target="_blank" rel="noopener">Xem phi&#7871;u thu PDF</a>
+                    <a class="btn ghost" href="{% url 'receipt_download' billing_invoice.pk %}">T&#7843;i phi&#7871;u thu</a></p>
+                {% else %}
+                    <span class="payment-status unpaid">Ch&#432;a thanh to&#225;n</span>
+                {% endif %}
+            {% else %}
+                <span class="payment-status none">Ch&#432;a c&#243; h&#243;a &#273;&#417;n</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="card">
+            {% if is_patient_view %}{% include 'core/exam_services/read_only.html' %}{% endif %}
         </div>
 
         <div class="card">

@@ -65,7 +65,8 @@ def audit_line(row, action, user, before_quantity=None, remote_addr='', note_cha
     except ValueError:
         address = None
     identifiers = {'phieu_kham_id': row.phieu_kham_id, 'dich_vu_id': row.dich_vu_id,
-                   'ma_dich_vu': row.dich_vu.ma_dich_vu, 'bac_si_id': row.nguoi_thuc_hien_id,
+                   'ma_dich_vu': row.dich_vu.ma_dich_vu, 'ten_dich_vu': row.dich_vu.ten,
+                   'bac_si_id': row.nguoi_thuc_hien_id,
                    'nguoi_ghi_nhan_id': row.nguoi_ghi_nhan_id}
     LogHeThong.objects.create(
         model_name='DichVuThucHien', object_id=row.pk, hanh_dong=action,

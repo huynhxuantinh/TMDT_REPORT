@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from PIL import Image
 from django.contrib import admin
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.db import DatabaseError, transaction
@@ -36,6 +36,8 @@ class AuditProtectionTests(ClinicalFixture):
         system = LogHeThong.objects.create(model_name='P1', object_id=1, hanh_dong='update', ghi_chu='ORIGINAL')
         appointment_log = LogLichKham.objects.get(lich_kham=self.appointment)
         staff = User.objects.create_user('audit-staff', is_staff=True)
+        staff.user_permissions.add(Permission.objects.get(
+            content_type__app_label='core', codename='quan_tri_he_thong'))
         for user in (self.admin, staff):
             self.client.force_login(user)
             for key, record in (('log-he-thong', system), ('log-lich-kham', appointment_log)):

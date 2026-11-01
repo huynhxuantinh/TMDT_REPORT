@@ -61,7 +61,7 @@ def support_amount(amount, rate):
     return (amount * rate / Decimal('100')).quantize(Decimal('1'), rounding=ROUND_HALF_UP)
 
 
-def calculate_support(appointment, proposed):
+def calculate_support(appointment, proposed, verified_rate=None):
     """Called inside bill_exam's transaction, after catalog rows are locked.
 
     Eligibility is evaluated on the examination date, never the current date.
@@ -94,21 +94,25 @@ def calculate_support(appointment, proposed):
     for line in proposed:
         rule = rules.get(line['dich_vu_id'])
         line_reason = reason
-        if not line_reason:
+        if verified_rate is not None:
+            line_reason = ''
+        elif not line_reason:
             if rule is None:
                 line_reason = 'Dịch vụ chưa có quy tắc hỗ trợ.'
             elif not rule.dang_ap_dung:
                 line_reason = 'Quy tắc đã ngừng áp dụng.'
             elif date < rule.hieu_luc_tu or (rule.hieu_luc_den and date > rule.hieu_luc_den):
                 line_reason = 'Quy tắc không có hiệu lực vào ngày khám.'
-        rate = rule.ty_le if not line_reason else Decimal('0')
+        rate = verified_rate if verified_rate is not None else (rule.ty_le if not line_reason else Decimal('0'))
         amount = support_amount(line['thanh_tien'], rate)
         if not Decimal('0') <= amount <= line['thanh_tien']:
             raise ValidationError('BHYT MÔ PHỎNG hỗ trợ vượt chi phí dịch vụ.')
         line.update(quy_tac_bhyt_id=rule.pk if rule else None, ty_le_bhyt=rate, bhyt_ho_tro=amount,
                     bhyt_snapshot={'quy_tac': rule_snapshot(rule) if rule else None,
-                                   'ly_do': line_reason or 'Áp dụng quy tắc BHYT MÔ PHỎNG.'})
+                                   'ly_do': 'Nhân viên đã xác minh BHYT tại quầy.' if verified_rate is not None else (line_reason or 'Áp dụng quy tắc BHYT MÔ PHỎNG.')})
         total += amount
-    if not context['ly_do']:
+    if verified_rate is not None:
+        context['ly_do'] = f'Nhân viên xác minh BHYT tại quầy, áp dụng hỗ trợ {verified_rate}%.'
+    elif not context['ly_do']:
         context['ly_do'] = 'Áp dụng quy tắc BHYT MÔ PHỎNG theo từng dịch vụ.' if total else 'Thẻ đủ điều kiện nhưng không có khoản hỗ trợ phù hợp cho các dịch vụ đã chọn.'
     return total, context

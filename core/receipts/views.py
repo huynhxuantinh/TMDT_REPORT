@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET, require_POST
 
-from core.models import HoaDon
+from core.models import BenhNhan, HoaDon
 from core.payments.access import can_admin, can_collect, scoped_appointments
 from .delivery import DeliveryError, locked_authorized_invoice, retry_confirmation
 from .pdf import render_pdf, snapshot
@@ -19,8 +19,6 @@ def receipt_access(view):
     @login_required
     @wraps(view)
     def wrapped(request, *args, **kwargs):
-        if not (can_admin(request.user) or can_collect(request.user)):
-            raise PermissionDenied('Chỉ nhân viên có quyền mới được truy cập phiếu thanh toán.')
         return view(request, *args, **kwargs)
     return wrapped
 
@@ -29,13 +27,37 @@ def scoped_invoice(request, invoice_id):
     return get_object_or_404(HoaDon.objects.filter(lich_kham__in=scoped_appointments(request.user)), pk=invoice_id)
 
 
+def patient_receipt_invoice(request, invoice_id):
+    patient = BenhNhan.objects.filter(user=request.user).first()
+    if patient is None:
+        patient = BenhNhan.objects.filter(user__isnull=True, so_dien_thoai=request.user.username).first()
+    if not patient:
+        raise PermissionDenied('Tài khoản chưa có hồ sơ bệnh nhân.')
+    return get_object_or_404(HoaDon.objects.select_related('lich_kham__benh_nhan'), pk=invoice_id,
+                             lich_kham__benh_nhan=patient, trang_thai='paid', can_doi_soat=False)
+
+
+def authorized_receipt_invoice(request, invoice_id):
+    if can_admin(request.user) or can_collect(request.user):
+        return scoped_invoice(request, invoice_id), False
+    return patient_receipt_invoice(request, invoice_id), True
+
+
 @never_cache
 @receipt_access
 @require_GET
 def receipt_pdf(request, invoice_id, download=False):
-    scoped_invoice(request, invoice_id)
+    invoice, patient_view = authorized_receipt_invoice(request, invoice_id)
     with transaction.atomic():
-        invoice = locked_authorized_invoice(invoice_id, request.user)
+        if patient_view:
+            invoice = HoaDon.objects.select_for_update().get(
+                pk=invoice.pk,
+                lich_kham__benh_nhan_id=invoice.lich_kham.benh_nhan_id,
+                trang_thai='paid',
+                can_doi_soat=False,
+            )
+        else:
+            invoice = locked_authorized_invoice(invoice_id, request.user)
         data = snapshot(invoice)
     response = HttpResponse(render_pdf(data), content_type='application/pdf')
     disposition = 'attachment' if download else 'inline'
@@ -52,7 +74,7 @@ def receipt_pdf(request, invoice_id, download=False):
 @receipt_access
 @require_GET
 def receipt_print(request, invoice_id):
-    invoice = scoped_invoice(request, invoice_id)
+    invoice, _ = authorized_receipt_invoice(request, invoice_id)
     return render(request, 'core/receipts/print.html', {'invoice': invoice})
 
 
@@ -60,6 +82,8 @@ def receipt_print(request, invoice_id):
 @receipt_access
 @require_POST
 def receipt_retry(request, invoice_id):
+    if not (can_admin(request.user) or can_collect(request.user)):
+        raise PermissionDenied('Chỉ nhân viên có quyền được gửi lại email phiếu thu.')
     invoice = scoped_invoice(request, invoice_id)
     try:
         retry_confirmation(invoice.pk, request.user, request.POST.get('attempts'))

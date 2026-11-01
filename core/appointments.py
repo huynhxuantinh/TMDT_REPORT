@@ -10,19 +10,13 @@ from .models import BacSi, BenhNhan, LichKham, LogHeThong
 
 def validate_exam_time(appointment, user, reason=''):
     now = timezone.localtime()
-    scheduled = timezone.make_aware(datetime.datetime.combine(
-        appointment.ngay_kham, appointment.gio_kham), timezone.get_current_timezone())
-    permission = None
-    if scheduled > now:
-        permission = 'core.kham_som'
-    elif appointment.ngay_kham < now.date():
-        permission = 'core.kham_hoi_to'
-    if permission:
-        if not user.has_perm(permission):
-            raise ValidationError('Chưa đến giờ khám hoặc lịch thuộc ngày trước. Cần quyền khám sớm/nhập hồi tố riêng.')
+    # During the appointment day, reception may receive the patient early;
+    # do not force a doctor to wait for the exact time slot.
+    if appointment.ngay_kham != now.date():
         if not 10 <= len(reason.strip()) <= 500:
-            raise ValidationError('Ngoại lệ thời gian cần lý do từ 10 đến 500 ký tự để lưu kiểm toán.')
-    return permission
+            raise ValidationError('Lịch khác ngày hiện tại cần lý do từ 10 đến 500 ký tự để lưu kiểm toán.')
+        return 'reason_required'
+    return None
 
 
 def transition_exam(appointment, user, target, reason=''):

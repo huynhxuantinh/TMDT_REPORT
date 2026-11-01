@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.exceptions import PermissionDenied
 from django.db import DatabaseError, IntegrityError, close_old_connections, connection, transaction
 from django.db.migrations.executor import MigrationExecutor
@@ -106,6 +106,8 @@ class CashierAccessTests(CashierFixtures, TestCase):
 
     def test_no_staff_is_automatically_assigned_and_admin_monitor_is_read_only(self):
         staff = User.objects.create_user('global_admin', is_staff=True)
+        staff.user_permissions.add(Permission.objects.get(
+            content_type__app_label='core', codename='quan_tri_he_thong'))
         self.assertFalse(can_collect(staff))
         self.client.force_login(staff)
         self.assertContains(self.client.get(reverse('cashier_monitor')), f'Hóa đơn #{self.invoice_row.pk}')

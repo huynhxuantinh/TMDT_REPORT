@@ -238,6 +238,35 @@
 .operations-page .jump-list a:hover { background: #e3f0eb; }
 .operations-page section[id] { scroll-margin-top: 150px; }
 
+/* Receipt email delivery state */
+.operations-page .email-delivery-success {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid #bfe3cd;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #f1fbf5, #e7f7ee);
+    color: #175f38;
+}
+.operations-page .email-delivery-icon {
+    width: 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #168250;
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+}
+.operations-page .email-delivery-success strong { font-size: 16px; }
+.operations-page .email-delivery-success p { margin: 5px 0 8px; }
+.operations-page .email-delivery-meta,
+.operations-page .email-delivery-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.operations-page .email-delivery-meta { color: #367155; font-size: 13px; }
+.operations-page .email-delivery-actions { margin-top: 12px; }
+
 /* ===================================================================
    Numbered pagination
    =================================================================== */

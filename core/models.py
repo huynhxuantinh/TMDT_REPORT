@@ -134,6 +134,8 @@ class HoaDon(models.Model):
     tong_chi_phi = models.DecimalField(max_digits=10, decimal_places=0, null=True, blank=True)
     bhyt_ho_tro = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     bhyt_snapshot = models.JSONField(default=dict, blank=True)
+    bhyt_da_xac_minh = models.BooleanField(default=False)
+    bhyt_ty_le_xac_minh = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     hoan_tat_bhyt = models.BooleanField(default=False)
     trang_thai = models.CharField(max_length=10, choices=TrangThai.choices, default=TrangThai.CHUA_THANH_TOAN)
     can_doi_soat = models.BooleanField(default=False)
@@ -143,7 +145,10 @@ class HoaDon(models.Model):
     ngay_thanh_toan = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        permissions = [('thu_vnpay', 'Thu tiền VNPAY Sandbox tại quầy')]
+        permissions = [
+            ('thu_vnpay', 'Thu tiền VNPAY Sandbox tại quầy'),
+            ('quan_tri_he_thong', 'Quản trị toàn hệ thống'),
+        ]
         constraints = [
             models.CheckConstraint(condition=(models.Q(tong_chi_phi__isnull=True, so_tien__gte=5000, so_tien__lte=9999999999, bhyt_ho_tro=0, hoan_tat_bhyt=False) | models.Q(tong_chi_phi__isnull=False, tong_chi_phi__gte=5000, tong_chi_phi__lte=9999999999, bhyt_ho_tro__gte=0, bhyt_ho_tro__lte=models.F('tong_chi_phi'), so_tien=models.F('tong_chi_phi') - models.F('bhyt_ho_tro'))), name='hoadon_insurance_amount'),
             models.CheckConstraint(condition=(models.Q(hoan_tat_bhyt=False, so_tien__gt=0) | models.Q(hoan_tat_bhyt=True, so_tien=0, trang_thai='paid', nguon='services', tong_chi_phi__isnull=False)), name='hoadon_zero_settlement'),

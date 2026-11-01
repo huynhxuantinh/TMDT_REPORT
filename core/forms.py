@@ -1,7 +1,7 @@
 import datetime
 
 from django import forms
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.contrib.gis.geos import Point
 
 from .models import BacSi, BenhVien, GioLamViecBacSi, Khoa, LichKham, QuanLyChiNhanh
@@ -232,7 +232,7 @@ class AdminUserForm(forms.ModelForm):
         choices=(
             (ROLE_USER, "Người dùng"),
             (ROLE_DOCTOR, "Bác sĩ"),
-            (ROLE_ADMIN, "Admin"),
+            (ROLE_ADMIN, "Nhân viên quản trị"),
         ),
         widget=forms.Select(attrs={"class": "form-control"}),
         help_text="Bác sĩ phải được liên kết trong danh mục Bác sĩ.",
@@ -322,6 +322,13 @@ class AdminUserForm(forms.ModelForm):
             user.set_unusable_password()
         if commit:
             user.save()
+            permission = Permission.objects.get(
+                content_type__app_label='core', codename='quan_tri_he_thong'
+            )
+            if user.is_superuser or role == self.ROLE_ADMIN:
+                user.user_permissions.add(permission)
+            else:
+                user.user_permissions.remove(permission)
         return user
 
 

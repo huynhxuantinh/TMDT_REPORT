@@ -16,6 +16,34 @@ class BillingError(ValidationError):
     pass
 
 
+@transaction.atomic
+def apply_verified_bhyt(invoice_id, user, verified, rate, remote_addr=''):
+    """Apply a counter-verified BHYT percentage and recalculate an unpaid invoice."""
+    from core.payments.access import can_collect, require_scope
+
+    invoice = HoaDon.objects.select_for_update().select_related('lich_kham').get(pk=invoice_id)
+    appointment = LichKham.objects.select_for_update().get(pk=invoice.lich_kham_id)
+    if not can_collect(user):
+        raise PermissionDenied('Tài khoản không có quyền xác minh BHYT tại quầy.')
+    require_scope(user, appointment)
+    if invoice_lock_reason(invoice):
+        raise BillingError(invoice_lock_reason(invoice))
+    if not verified:
+        invoice.bhyt_da_xac_minh = False
+        invoice.bhyt_ty_le_xac_minh = None
+    else:
+        try:
+            rate = Decimal(str(rate))
+        except Exception as exc:
+            raise BillingError('Tỷ lệ BHYT không hợp lệ.') from exc
+        if not Decimal('0') <= rate <= Decimal('100'):
+            raise BillingError('Tỷ lệ BHYT phải từ 0 đến 100%.')
+        invoice.bhyt_da_xac_minh = True
+        invoice.bhyt_ty_le_xac_minh = rate
+    invoice.save(update_fields=['bhyt_da_xac_minh', 'bhyt_ty_le_xac_minh', 'ngay_cap_nhat'])
+    return bill_exam(invoice.phieu_kham_id, user, recalculate=True, remote_addr=remote_addr)
+
+
 def invoice_lock_reason(invoice):
     if invoice.nguon != HoaDon.Nguon.DICH_VU:
         return 'Đã có hóa đơn thử nghiệm cũ. Giữ nguyên dịch vụ và số tiền; không tự chuyển đổi hóa đơn này.'
@@ -55,6 +83,8 @@ def cost_snapshot(invoice):
             'phieu_kham_id': invoice.phieu_kham_id,
             'tong_chi_phi': str(invoice.tong_truoc_bhyt), 'bhyt_ho_tro': str(invoice.bhyt_ho_tro),
             'hoan_tat_bhyt': invoice.hoan_tat_bhyt, 'bhyt_snapshot': invoice.bhyt_snapshot,
+            'bhyt_da_xac_minh': invoice.bhyt_da_xac_minh,
+            'bhyt_ty_le_xac_minh': str(invoice.bhyt_ty_le_xac_minh) if invoice.bhyt_ty_le_xac_minh is not None else None,
             'chi_tiet': [dict(dich_vu_thuc_hien_id=line.dich_vu_thuc_hien_id,
                              dich_vu_id=line.dich_vu_id, ma_dich_vu=line.ma_dich_vu,
                              so_luong=line.so_luong, don_gia=str(line.don_gia), thanh_tien=str(line.thanh_tien),
@@ -125,8 +155,9 @@ def bill_exam(phieu_id, user, *, recalculate=False, remote_addr=''):
         raise BillingError('Tổng chi phí phải từ 5.000 đến 9.999.999.999 VND theo giới hạn thanh toán hiện tại. Kiểm tra dịch vụ và số lượng.')
     if invoice and invoice.phieu_kham_id != phieu.pk:
         raise BillingError('Hóa đơn không khớp phiếu khám; cần kiểm tra dữ liệu.')
+    verified_rate = invoice.bhyt_ty_le_xac_minh if invoice and invoice.bhyt_da_xac_minh else None
     try:
-        insurance_total, insurance_snapshot = calculate_support(appointment, proposed)
+        insurance_total, insurance_snapshot = calculate_support(appointment, proposed, verified_rate=verified_rate)
     except ValidationError as exc:
         raise BillingError(exc.messages) from exc
     payable = total - insurance_total

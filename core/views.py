@@ -3,6 +3,7 @@ import datetime
 import math
 import secrets
 import re
+from urllib.parse import parse_qs, urlsplit
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.password_validation import validate_password
@@ -57,7 +58,7 @@ from .forms import (
     DatLichForm,
 )
 from .billing.services import billing_context as exam_billing_context
-from .payments.access import can_admin
+from .payments.access import can_admin, can_collect
 from .appointments import book_appointment, transition_exam
 from .exam_uploads import validate_exam_images
 from .geo import point_to_latlon
@@ -661,7 +662,7 @@ def medical_history(request):
 
     lich_su = (
         LichSuKhamBenh.objects.filter(benh_nhan=benh_nhan)
-        .select_related("bac_si", "benh_vien", "phieu_kham")
+        .select_related("bac_si", "benh_vien", "phieu_kham", "phieu_kham__hoa_don")
         .order_by("-ngay_kham", "-ngay_tao")
     )
 
@@ -729,6 +730,7 @@ def phieu_kham_detail(request, phieu_id):
             "phieu": phieu,
             "edit_logs": edit_logs,
             "exam_images": list(phieu.hinh_anhs.all()),
+            "is_patient_view": False,
             **exam_billing_context(phieu),
         })
 
@@ -756,6 +758,7 @@ def phieu_kham_detail(request, phieu_id):
         "phieu": phieu,
         "edit_logs": edit_logs,
         "exam_images": list(phieu.hinh_anhs.all()),
+        "is_patient_view": True,
         **exam_billing_context(phieu),
     })
 
@@ -787,6 +790,7 @@ def doctor_dashboard(request):
 # KHÁM BỆNH (TẠO PHIẾU)
 # ==========================
 @login_required
+@never_cache
 def doctor_exam(request, lich_id):
 
     try:
@@ -933,8 +937,11 @@ def user_login(request):
             if hasattr(user, "quan_ly_chi_nhanh"):
                 return redirect("payment_list")
 
-            if user.is_superuser or user.is_staff:
+            if can_admin(user):
                 return redirect("custom_admin_dashboard")
+
+            if can_collect(user):
+                return redirect("payment_list")
             # Nếu là bác sĩ
             if hasattr(user, "bac_si"):
                 return redirect("bac_si_home")
@@ -2382,6 +2389,45 @@ def _doctor_notification_link(link, doctor):
     if match.url_name == 'phieu_kham_detail':
         return link if PhieuKham.objects.filter(pk=match.kwargs['phieu_id'], lich_kham__bac_si=doctor).exists() else ''
     return ''
+
+
+def _patient_notification_link(link, patient):
+    """Return an authorized, internal destination for a patient notification."""
+    parts = urlsplit(link or '')
+    if (
+        not parts.path.startswith('/')
+        or parts.path.startswith('//')
+        or parts.scheme
+        or parts.netloc
+    ):
+        return ''
+    try:
+        match = resolve(parts.path)
+    except Resolver404:
+        return ''
+
+    if match.url_name == 'upcoming_appointments':
+        appointment_ids = parse_qs(parts.query).get('lich', [])
+        if not appointment_ids:
+            return reverse('upcoming_appointments')
+        if len(appointment_ids) != 1 or not appointment_ids[0].isdigit():
+            return ''
+        appointment = LichKham.objects.filter(
+            pk=int(appointment_ids[0]), benh_nhan=patient
+        ).first()
+        if not appointment:
+            return ''
+        return f"{reverse('upcoming_appointments')}?lich={appointment.pk}"
+
+    if match.url_name == 'phieu_kham_detail':
+        exam = PhieuKham.objects.filter(
+            pk=match.kwargs['phieu_id'], benh_nhan=patient
+        ).first()
+        return reverse('phieu_kham_detail', args=[exam.pk]) if exam else ''
+
+    if match.url_name == 'medical_history':
+        return reverse('medical_history')
+    return ''
  
 # ==========================
 # LỊCH LÀM VIỆC BÁC SĨ
@@ -2620,9 +2666,15 @@ def notifications(request):
                 ).update(da_doc=True)
             return redirect("notifications")
 
-    thong_baos = ThongBao.objects.filter(
+    patient = _patient_for_user(request.user)
+    thong_baos = list(ThongBao.objects.filter(
         nguoi_nhan=request.user
-    ).order_by("-thoi_gian")
+    ).order_by("-thoi_gian"))
+    for notification in thong_baos:
+        notification.safe_link = (
+            _patient_notification_link(notification.lien_ket, patient)
+            if patient else ''
+        )
 
     return render(request, "core/notifications.html", {
         "thong_baos": thong_baos,

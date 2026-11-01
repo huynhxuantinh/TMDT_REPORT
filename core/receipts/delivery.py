@@ -10,7 +10,8 @@ from functools import partial
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.core.exceptions import PermissionDenied, ValidationError
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import EmailMultiAlternatives, get_connection
+from django.template.loader import render_to_string
 from django.core.validators import validate_email
 from django.db import transaction
 from django.utils import timezone
@@ -167,9 +168,17 @@ def dispatch(row_id, expected_attempts):
                 'PDF đính kèm là phiếu thanh toán nội bộ, không phải hóa đơn điện tử có giá trị pháp lý.\n'
                 'Đây là email kiểm thử được giữ tại Mailtrap Email Testing, không gửi tới hộp thư thật.\n'
                 'MedCare GIS')
-        message = EmailMessage('Xác nhận thanh toán dịch vụ khám chữa bệnh', body,
+        message = EmailMultiAlternatives('Xác nhận thanh toán dịch vụ khám chữa bệnh', body,
             settings.DEFAULT_FROM_EMAIL, [row.email_nhan], connection=connection,
             headers={'Message-ID': f'<receipt-{row.ma_thu}@qlbenhvien.local>'})
+        message.attach_alternative(render_to_string('core/receipts/payment_success_email.html', {
+            'invoice_id': data['id'],
+            'amount': money(data['amount']),
+            'method': data['method'],
+            'hospital': data['hospital'],
+            'patient': data['patient'],
+            'paid_at': data['paid_at'],
+        }), 'text/html')
         message.attach(f'phieu-thanh-toan-{row.hoa_don_id}.pdf', pdf, 'application/pdf')
         message.message()  # Validate headers/attachment before entering SMTP.
     except Exception:

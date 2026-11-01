@@ -95,35 +95,29 @@ class ClinicalTransitionTests(Fixture, TestCase):
         self.finish()
         self.assertEqual(PhieuKham.objects.filter(lich_kham=self.appointment).count(), 1)
 
-    def test_future_start_and_completion_need_permission_and_reason(self):
+    def test_doctor_can_start_early_on_the_scheduled_day_without_exception(self):
+        self.appointment.gio_kham = datetime.time(16)
+        self.appointment.save(update_fields=['gio_kham'])
+        self.start()
+        self.assert_state('dang')
+
+    def test_future_start_and_completion_need_reason(self):
         self.appointment.ngay_kham = NOW.date() + datetime.timedelta(days=1)
         self.appointment.save(update_fields=['ngay_kham'])
         self.start(exception_reason='Khách đến khám sớm')
-        self.assert_state('cho')
-        self.doctor.user_permissions.add(Permission.objects.get(codename='kham_som'))
-        self.start()  # Permission alone is not sufficient for an exception.
-        self.assert_state('cho')
-        self.start(exception_reason='Khách đến khám sớm')
         self.assert_state('dang')
-        self.doctor.user_permissions.clear()
-        self.finish(exception_reason='Khách đến khám sớm')
-        self.assert_state('dang')
-        self.assertFalse(PhieuKham.objects.filter(lich_kham=self.appointment).exists())
-        self.doctor.user_permissions.add(Permission.objects.get(codename='kham_som'))
         self.finish(exception_reason='Khách đến khám sớm')
         self.assert_state('xong')
         logs = LogHeThong.objects.filter(model_name='LichKham', object_id=self.appointment.pk,
-                                        du_lieu_moi__quyen_ngoai_le='core.kham_som')
+                                        du_lieu_moi__quyen_ngoai_le='reason_required')
         self.assertEqual(logs.count(), 2)
         self.assertTrue(all(log.nguoi_thuc_hien_id == self.doctor.pk for log in logs))
 
-    def test_retrospective_permission_is_separate_from_early_permission(self):
+    def test_retrospective_exam_needs_reason(self):
         self.appointment.ngay_kham = NOW.date() - datetime.timedelta(days=1)
         self.appointment.save(update_fields=['ngay_kham'])
-        self.doctor.user_permissions.add(Permission.objects.get(codename='kham_som'))
-        self.start(exception_reason='Ghi bổ sung sau sự cố')
+        self.start()
         self.assert_state('cho')
-        self.doctor.user_permissions.add(Permission.objects.get(codename='kham_hoi_to'))
         self.start(exception_reason='Ghi bổ sung sau sự cố')
         self.finish(exception_reason='Ghi bổ sung sau sự cố')
         self.assert_state('xong')
@@ -320,6 +314,22 @@ class NavigationTests(Fixture, TestCase):
         self.appointment.save(update_fields=['bac_si'])
         response = self.client.get(reverse('bac_si_notifications'))
         self.assertEqual({n.pk: n.safe_link for n in response.context['thong_baos']}[valid.pk], '')
+
+    def test_patient_notifications_only_render_owned_internal_links(self):
+        safe = ThongBao.objects.create(
+            nguoi_nhan=self.patient, loai='lich_kham', tieu_de='Safe', noi_dung='Test',
+            lien_ket=f"{reverse('upcoming_appointments')}?lich={self.appointment.pk}",
+        )
+        unsafe = ThongBao.objects.create(
+            nguoi_nhan=self.patient, loai='lich_kham', tieu_de='Unsafe', noi_dung='Test',
+            lien_ket='javascript:alert(document.domain)',
+        )
+        self.client.force_login(self.patient)
+        response = self.client.get(reverse('notifications'))
+        links = {notification.pk: notification.safe_link for notification in response.context['thong_baos']}
+        self.assertEqual(links[safe.pk], f"{reverse('upcoming_appointments')}?lich={self.appointment.pk}")
+        self.assertEqual(links[unsafe.pk], '')
+        self.assertNotContains(response, 'javascript:alert')
 
     def test_missing_coordinates_are_json_null_and_search_returns_result_coordinates(self):
         cache.clear()

@@ -77,6 +77,8 @@
 {% if invoice %}
 <nav class="jump-list" aria-label="Mục lục hóa đơn">
     {% if can_edit_services %}<a href="#dich-vu">Dịch vụ thực hiện</a>{% endif %}
+    {% if can_edit_services %}<a href="#bhyt">BHYT</a>{% endif %}
+    {% if service_logs %}<a href="#lich-su-dich-vu">Lịch sử dịch vụ</a>{% endif %}
     <a href="#hoa-don">Chi tiết hóa đơn</a>
     <a href="#thanh-toan">Thanh toán</a>
     <a href="#email">Email phiếu</a>
@@ -93,6 +95,19 @@
         {% include 'core/exam_services/editor.html' %}
         <button type="submit">Lưu dịch vụ và tính lại hóa đơn</button>
     </form>
+</section>
+{% endif %}
+
+{% if invoice and can_edit_services %}
+<section id="bhyt">
+    <h2>BHYT MÔ PHỎNG</h2>
+    <form method="post" action="{% url 'payment_bhyt_apply' invoice.pk %}" class="form-grid">
+        {% csrf_token %}
+        <label class="checkbox-item"><input type="checkbox" name="bhyt_verified" value="yes" {% if invoice.bhyt_da_xac_minh %}checked{% endif %}> Nhân viên đã kiểm tra thẻ BHYT</label>
+        <label>Tỷ lệ giảm (%)<input type="number" name="bhyt_rate" min="0" max="100" step="0.01" value="{{ bhyt_rate }}"></label>
+        <div><button type="submit">Áp dụng BHYT và tính lại tiền</button></div>
+    </form>
+    <p class="muted">Mặc định giảm 75%. Chỉ tick sau khi đã xác minh thẻ bên ngoài.</p>
 </section>
 {% endif %}
 
@@ -163,11 +178,31 @@
     <h2>Email phiếu thanh toán</h2>
     <p>{% if show_technical %}Chỉ gửi vào Mailtrap Email Testing, không gửi tới hộp thư thật.{% else %}Email xác nhận được hệ thống xử lý sau khi thanh toán thành công.{% endif %}</p>
     {% if receipt_email %}
-        <p>
-            <span class="status-badge" data-tone="{{ receipt_email.trang_thai|tone }}">{{ receipt_email.get_trang_thai_display }}</span>
-            <span class="muted">Lần xử lý: {{ receipt_email.so_lan_thu }}</span>
-        </p>
-        {% if receipt_email.gui_luc %}<p>Thời gian ghi nhận gửi: {{ receipt_email.gui_luc|date:'d/m/Y H:i:s' }}</p>{% endif %}
+        {% if receipt_email.trang_thai == 'sent' %}
+        <div class="email-delivery-success" role="status">
+            <span class="email-delivery-icon" aria-hidden="true">✓</span>
+            <div>
+                <strong>Đã gửi email xác nhận thanh toán</strong>
+                <p>Phiếu hóa đơn #{{ invoice.pk }} đã được gửi thành công đến <b>{{ receipt_email.email_nhan }}</b>.</p>
+                <div class="email-delivery-meta">
+                    <span>Gửi lúc {{ receipt_email.gui_luc|date:'d/m/Y H:i:s' }}</span>
+                    <span>•</span>
+                    <span>Lần gửi {{ receipt_email.so_lan_thu }}</span>
+                    {% if show_technical %}<span>• Mailtrap Email Testing</span>{% endif %}
+                </div>
+                <div class="email-delivery-actions">
+                    <a class="btn secondary" href="{% url 'receipt_view' invoice.pk %}">Xem phiếu PDF</a>
+                    <a class="btn secondary" href="{% url 'receipt_download' invoice.pk %}">Tải PDF</a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+            <p>
+                <span class="status-badge" data-tone="{{ receipt_email.trang_thai|tone }}">{{ receipt_email.get_trang_thai_display }}</span>
+                <span class="muted">Lần xử lý: {{ receipt_email.so_lan_thu }}</span>
+            </p>
+            {% if receipt_email.gui_luc %}<p>Thời gian ghi nhận gửi: {{ receipt_email.gui_luc|date:'d/m/Y H:i:s' }}</p>{% endif %}
+        {% endif %}
         {% if receipt_email_error %}<p class="notice">{{ receipt_email_error }}</p>{% endif %}
         {% if receipt_email.trang_thai == 'sending' or receipt_email.trang_thai == 'unknown' %}
             <p class="notice">Không bấm gửi lại. Nếu trạng thái kéo dài, vui lòng liên hệ Admin kiểm tra kết quả.</p>
@@ -203,6 +238,24 @@
             <td>Nhân viên: {{ attempt.nguoi_tao.username|default:'—' }}<br>Bệnh viện ghi nhận: {{ attempt.benh_vien.ten|default:'Giao dịch cũ chưa lưu bệnh viện' }}<br>Hoàn tất: {{ attempt.hoan_tat_luc|date:'d/m/Y H:i:s'|default:'—' }}
             {% if attempt.phuong_thuc == 'VNPAY' %}<br>Mã phản hồi: {{ attempt.ma_phan_hoi|default:'—' }}<br>Trạng thái: {{ attempt.trang_thai_vnpay|default:'—' }}<br>Mã GD: {{ attempt.ma_giao_dich_vnpay|default:'—' }}{% endif %}</td>
         </tr>{% empty %}<tr><td colspan="4">Chưa có giao dịch.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</section>{% endif %}
+
+{% if service_logs %}<section id="lich-su-dich-vu">
+    <h2>Lịch sử thay đổi dịch vụ</h2>
+    <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Thời gian</th><th scope="col">Người thao tác</th><th scope="col">Thay đổi</th><th scope="col">Dịch vụ</th></tr></thead>
+        <tbody>{% for log in service_logs %}<tr>
+            <td>{{ log.thoi_gian|date:'d/m/Y H:i:s' }}</td>
+            <td>{{ log.nguoi_thuc_hien.username|default:'Hệ thống' }}</td>
+            <td>
+                {{ log.get_hanh_dong_display }}
+                {% if log.hanh_dong == 'update' %} · SL {{ log.quantity_before }} → {{ log.quantity_after }}
+                {% elif log.hanh_dong == 'create' %} · SL {{ log.quantity_after }}
+                {% elif log.hanh_dong == 'delete' %} · SL {{ log.quantity_before }}{% endif %}
+            </td>
+            <td>{{ log.service_label }}{% if 'sửa ghi chú' in log.ghi_chu %}<br><small>Có cập nhật ghi chú</small>{% endif %}</td>
+        </tr>{% endfor %}</tbody>
     </table></div>
 </section>{% endif %}
 

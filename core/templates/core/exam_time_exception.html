@@ -1,5 +1,3 @@
-{% if perms.core.kham_som or perms.core.kham_hoi_to %}
-<label>Lý do khám sớm/nhập hồi tố (bắt buộc khi dùng ngoại lệ)
+<label>Lý do khám khác ngày (chỉ bắt buộc với lịch tương lai hoặc quá khứ)
     <input type="text" name="exception_reason" maxlength="500" value="{{ exception_reason }}">
 </label>
-{% endif %}

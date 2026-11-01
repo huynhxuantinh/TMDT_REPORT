@@ -2,7 +2,7 @@ from decimal import Decimal
 from io import StringIO
 from unittest.mock import patch
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import Permission, User
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.management import call_command
 from django.db import DatabaseError, IntegrityError, connection, transaction
@@ -28,8 +28,9 @@ def service_data(**overrides):
 class ServiceCatalogTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        # Existing app calls is_staff=True accounts Admin; no extra role introduced.
         cls.admin = User.objects.create_user('catalog_admin', is_staff=True)
+        cls.admin.user_permissions.add(Permission.objects.get(
+            content_type__app_label='core', codename='thu_vnpay'))
         cls.service = DanhMucDichVu.objects.create(
             ma_dich_vu='XN_MAU', ten='Xét nghiệm máu', nhom='Xét nghiệm', don_gia=Decimal('80000'),
         )

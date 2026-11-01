@@ -313,12 +313,23 @@ venv\Scripts\python.exe manage.py seed_demo --preset doctor
 venv\Scripts\python.exe manage.py seed_demo --preset doctor --no-reset
 ```
 
-**Tài khoản demo:**
+**Tài khoản demo (chỉ dùng trên máy cục bộ):**
 
-| Vai trò | Username | Password |
-|---|---|---|
-| Bệnh nhân | `0909000001` | `123456` |
-| Bác sĩ | `bsdemo` | `123456` |
+| Vai trò | Username | Password | Thông tin / trang demo |
+|---|---|---|---|
+| Super Admin | `admin` | `123456` | Quản trị toàn hệ thống: `/quan-tri/` |
+| Quản lý chi nhánh | `quanly` | `123456` | Bệnh viện Chợ Rẫy, thu tiền: `/thanh-toan/` |
+| Quản lý chi nhánh | `quanly2` | `123456` | Bệnh viện Thống Nhất, thu tiền: `/thanh-toan/` |
+| Bác sĩ | `bsdemo` | `123456` | BS Nội tổng quát 1, Bệnh viện Chợ Rẫy: `/bac-si/` |
+| Bác sĩ | `bsdemo2` | `123456` | BS Nội tổng quát 2, Bệnh viện Chợ Rẫy: `/bac-si/` |
+| Bác sĩ | `bsdemo3` | `123456` | BS Ngoại tổng quát 1, Bệnh viện Chợ Rẫy: `/bac-si/` |
+| Bệnh nhân | `0909000001` | `123456` | Nguyễn Văn An, BHYT0001: `/lich-kham-sap-toi/` |
+| Bệnh nhân | `0909000002` | `123456` | Trần Thị Bích, BHYT0002: `/lich-kham-sap-toi/` |
+| Bệnh nhân | `0909000003` | `123456` | Lê Hoàng Long, BHYT0003: `/lich-kham-sap-toi/` |
+| Bệnh nhân | `0909000004` | `123456` | Phạm Minh Châu: `/lich-kham-sap-toi/` |
+| Bệnh nhân | `0909000005` | `123456` | Đoàn Quốc Huy: `/lich-kham-sap-toi/` |
+
+> Đổi toàn bộ mật khẩu này trước khi đưa lên môi trường thật.
 
 ---
 

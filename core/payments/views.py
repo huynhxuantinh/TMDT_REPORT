@@ -15,7 +15,7 @@ from django.views.decorators.debug import sensitive_variables
 from django.views.decorators.http import require_GET, require_POST
 
 from core.models import EmailPhieuThanhToan, GiaoDichThanhToan, HoaDon, LichKham, LogHeThong, PhieuKham
-from core.billing.services import BillingError, bill_exam, validate_invoice_total, payable_error
+from core.billing.services import BillingError, apply_verified_bhyt, bill_exam, validate_invoice_total, payable_error
 from core.billing.services import invoice_lock_reason
 from core.exam_services.services import ExamServiceError, form_context as exam_services_context, sync_services
 from . import services, vnpay
@@ -123,6 +123,19 @@ def payment_detail(request, lich_id, monitor=False):
     service_context = exam_services_context(appointment, phieu) if can_edit_services else {}
     show_technical = can_admin(request.user)
     audit_entries = []
+    service_logs = []
+    if phieu:
+        service_logs = list(
+            LogHeThong.objects.filter(model_name='DichVuThucHien').filter(
+                Q(du_lieu_moi__phieu_kham_id=phieu.pk)
+                | Q(du_lieu_cu__phieu_kham_id=phieu.pk)
+            ).select_related('nguoi_thuc_hien').order_by('-thoi_gian', '-pk')[:50]
+        )
+        for log in service_logs:
+            data = log.du_lieu_moi or log.du_lieu_cu or {}
+            log.service_label = data.get('ten_dich_vu') or data.get('ma_dich_vu', 'Dịch vụ')
+            log.quantity_before = (log.du_lieu_cu or {}).get('so_luong')
+            log.quantity_after = (log.du_lieu_moi or {}).get('so_luong')
     if invoice:
         audit_entries = list(
             LogHeThong.objects.filter(
@@ -147,10 +160,12 @@ def payment_detail(request, lich_id, monitor=False):
         'invoice_logs': (LogHeThong.objects.filter(model_name='HoaDon', object_id=invoice.pk,
                                                   du_lieu_moi__phien_ban__isnull=False)
                          .select_related('nguoi_thuc_hien') if invoice else []),
+        'service_logs': service_logs,
         'audit_entries': audit_entries,
         'config_error': '' if invoice and invoice.hoan_tat_bhyt else (config_error if show_technical else ('Cổng thanh toán hiện chưa sẵn sàng. Vui lòng liên hệ Admin.' if config_error else '')),
         'can_start': available and not config_error and not amount_error,
         'can_edit_services': can_edit_services,
+        'bhyt_rate': invoice.bhyt_ty_le_xac_minh if invoice and invoice.bhyt_da_xac_minh else 75,
         'can_resolve_reconciliation': bool(monitor and invoice and (invoice.can_doi_soat or overdue_pending)
                                            and not refund_attempt and can_admin(request.user)),
         'show_technical': show_technical,
@@ -177,6 +192,22 @@ def services_save(request, lich_id):
     except PermissionDenied as exc:
         messages.error(request, str(exc))
     return redirect('payment_detail', lich_id=lich_id)
+
+
+@never_cache
+@collector_required
+@require_POST
+def bhyt_apply(request, invoice_id):
+    invoice = get_object_or_404(HoaDon.objects.filter(lich_kham__in=scoped_appointments(request.user)), pk=invoice_id)
+    try:
+        apply_verified_bhyt(
+            invoice.pk, request.user, request.POST.get('bhyt_verified') == 'yes',
+            request.POST.get('bhyt_rate', ''), request.META.get('REMOTE_ADDR', ''),
+        )
+        messages.success(request, 'Đã áp dụng BHYT và tính lại hóa đơn.')
+    except (BillingError, PermissionDenied) as exc:
+        messages.error(request, ' '.join(exc.messages) if hasattr(exc, 'messages') else str(exc))
+    return redirect('payment_detail', lich_id=invoice.lich_kham_id)
 
 
 @collector_required

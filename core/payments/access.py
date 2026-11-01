@@ -24,8 +24,16 @@ def can_collect(user):
 
 
 def can_admin(user):
-    return (user.is_authenticated and user.is_active
-            and (user.is_staff or user.is_superuser) and not manager_profile(user))
+    """Global administration is explicit; ``is_staff`` only enables Django staff UI."""
+    return (
+        user.is_authenticated
+        and user.is_active
+        and not manager_profile(user)
+        and (
+            user.is_superuser
+            or (user.is_staff and user.has_perm('core.quan_tri_he_thong'))
+        )
+    )
 
 
 def scoped_appointments(user):
